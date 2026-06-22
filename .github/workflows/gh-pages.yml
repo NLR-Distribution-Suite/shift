@@ -8,7 +8,7 @@ jobs:
   make-pages:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: select python version
         uses: actions/setup-python@v6
         with:
@@ -23,7 +23,7 @@ jobs:
           make clean
           make html
       - name: deploy
-        uses: peaceiris/actions-gh-pages@v4.0.0
+        uses: peaceiris/actions-gh-pages@v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/_build/html
