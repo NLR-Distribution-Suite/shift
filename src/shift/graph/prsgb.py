@@ -2,14 +2,13 @@ import uuid
 import copy
 
 import networkx as nx
-from shapely import MultiPoint, Point
 from infrasys.quantities import Distance
 
 from shift.data_model import GroupModel, GeoLocation
-from shift.exceptions import EmptyGraphError
 from shift.graph.openstreet_graph_builder import OpenStreetGraphBuilder
+from shift.graph.routing import RoutingStrategy, FullRoadGraphStrategy
+from shift.graph.secondary import SecondaryNetworkStrategy, MeshSteinerStrategy
 from shift.openstreet_roads import get_road_network
-from shift.utils.mesh_network import get_mesh_network
 from shift.utils.polygon_from_points import get_polygon_from_points
 from shift.utils.split_network_edges import (
     get_distance_between_points,
@@ -21,15 +20,39 @@ class PRSG(OpenStreetGraphBuilder):
     """Class interface for Primary Road and Secondary Grid distribution graph builder.
 
     It searches for available openstreet road network within an area defined by
-    `points` + `buffer`. Primary network is build by applying steiner tree algorithm from road
-    network and connecting all nodes closest to the group centers, which will be treated as
-    distribution transformer locations. Secondary network is build by building two dimensional
-    grid within the bouding box formed by individual group points and then building steiner
-    tree from it to connect only the nodes nearest to group points.
+    `points` + `buffer`. Primary network is built by applying a routing strategy
+    (default: Steiner tree) on the road network connecting all nodes closest to the
+    group centers, which will be treated as distribution transformer locations.
+    Secondary network is built using a configurable secondary strategy (default:
+    rectangular mesh + Steiner tree).
+
+    Parameters
+    ----------
+    groups : list[GroupModel]
+        List of groups for building a openstreet network.
+    source_location : GeoLocation
+        Power source location.
+    buffer : Distance, optional
+        Buffer for road network search. Defaults to 20m.
+    routing_strategy : RoutingStrategy, optional
+        Strategy for primary network routing. Defaults to SteinerTreeStrategy.
+    secondary_strategy : SecondaryNetworkStrategy, optional
+        Strategy for secondary network construction. Defaults to MeshSteinerStrategy.
     """
 
+    def __init__(
+        self,
+        groups: list[GroupModel],
+        source_location: GeoLocation,
+        buffer: Distance = Distance(20, "m"),
+        routing_strategy: RoutingStrategy | None = None,
+        secondary_strategy: SecondaryNetworkStrategy | None = None,
+    ):
+        super().__init__(groups, source_location, buffer, routing_strategy)
+        self.secondary_strategy = secondary_strategy or MeshSteinerStrategy()
+
     def build_secondary_network(self, group: GroupModel) -> nx.Graph:
-        """Internal method to build secondary network.
+        """Build secondary network using the configured strategy.
 
         Parameters
         ----------
@@ -41,30 +64,7 @@ class PRSG(OpenStreetGraphBuilder):
         nx.Graph
 
         """
-        if len(group.points) == 1:
-            sec_graph = nx.Graph()
-            node_name = str(uuid.uuid4())
-            sec_graph.add_node(node_name, x=group.center[0], y=group.center[1])
-            return sec_graph
-
-        minx, miny, maxx, maxy = MultiPoint([Point(*point) for point in group.points]).bounds
-        sec_network = get_mesh_network(
-            lower_left=GeoLocation(minx, miny),
-            upper_right=GeoLocation(maxx, maxy),
-            spacing=Distance(50, "m"),
-        )
-        nearest_nodes = self._get_nearest_nodes(sec_network, group.points)
-        if len(set(nearest_nodes)) == 1:
-            return nx.Graph(sec_network.subgraph(nearest_nodes))
-        reduced_network = self._get_steiner_tree(
-            sec_network,
-            nearest_nodes,
-        )
-
-        if not reduced_network.nodes:
-            raise EmptyGraphError("Reduced network is empty.")
-
-        return reduced_network
+        return self.secondary_strategy.build(group)
 
     def _extend_road_network(self, graph: nx.Graph, groups: list[GroupModel]) -> nx.Graph:
         """Internal method to extend primary network if necessary."""
@@ -90,14 +90,18 @@ class PRSG(OpenStreetGraphBuilder):
         nx.Graph
         """
         points = [point for group in self.groups for point in group.points]
-        road_network_ = get_road_network(get_polygon_from_points(points, self.buffer))
+        use_full_road_graph = isinstance(self.routing_strategy, FullRoadGraphStrategy)
+        road_network_ = get_road_network(
+            get_polygon_from_points(points, self.buffer),
+            reduce_to_mst=not use_full_road_graph,
+        )
         road_network_ = self._extend_road_network(road_network_, self.groups)
         road_network = split_network_edges(road_network_, split_length=Distance(150, "m"))
         nearest_nodes = self._get_nearest_nodes(
             road_network,
             [c.center for c in self.groups] + [self.source_location],
         )
-        primary_network = self._get_steiner_tree(
+        primary_network = self._route_network(
             road_network,
             nearest_nodes,
         )

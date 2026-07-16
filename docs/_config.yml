@@ -7,12 +7,16 @@ execute:
 
 only_build_toc_files: true
 
+bibtex_bibfiles:
+  - references.bib
+
 sphinx:
   extra_extensions:
     - sphinx.ext.autodoc
     - sphinx.ext.autosummary
     - sphinx.ext.napoleon
     - sphinxcontrib.autodoc_pydantic
+    - sphinxcontrib.bibtex
   config:
     autodoc_member_order: bysource
     autoclass_content: both

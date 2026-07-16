@@ -14,6 +14,7 @@ NETWORK_TYPE = "drive"
 def get_road_network(
     location: str | GeoLocation | list[GeoLocation] | Polygon,
     max_distance: Distance = Distance(500, "m"),
+    reduce_to_mst: bool = True,
 ) -> nx.Graph:
     """Function to return networkx graph representation for a road network.
 
@@ -30,6 +31,10 @@ def get_road_network(
         max_distance : Distance
             Maximum distance to form a bounding box
             within which buildings are fetched.
+        reduce_to_mst : bool, optional
+            Whether to reduce the graph to its minimum spanning tree.
+            Defaults to True (original behavior). Set to False to get
+            the full road network graph (useful for FullRoadGraphStrategy).
 
     Returns
     -------
@@ -62,4 +67,8 @@ def get_road_network(
     else:
         msg = f"Invalid {location=} passed."
         raise InvalidInputError(msg)
-    return nx.minimum_spanning_tree(graph.to_undirected())
+
+    undirected = graph.to_undirected()
+    if reduce_to_mst:
+        return nx.minimum_spanning_tree(undirected)
+    return undirected

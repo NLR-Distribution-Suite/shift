@@ -1,6 +1,9 @@
 format: jb-book
 root: index
 parts:
+  - caption: What's New
+    chapters:
+      - file: new_features
   - caption: User Guides
     chapters:
       - file: example/example
@@ -22,6 +25,8 @@ parts:
           - file: references/dist_graph
           - file: references/openstreet_graph
           - file: references/prsg
+          - file: references/routing_strategies
+          - file: references/secondary_strategies
           - file: references/phase_mapper
           - file: references/voltage_mapper
           - file: references/equipment_mapper

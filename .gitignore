@@ -164,3 +164,6 @@ cache
 
 # macOS Finder metadata
 .DS_Store
+
+# Research papers (PDFs not tracked)
+.papers/
