@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHIFT Designer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NREL SHIFT</p>
+        <h1>Distribution Network Studio</h1>
+      </div>
+      <div class="status" id="healthStatus">Checking API...</div>
+    </header>
+
+    <main class="layout">
+      <section class="card controls">
+        <h2>1. Region + Parcels</h2>
+        <label>
+          Address or lon,lat
+          <input id="locationInput" placeholder="Fort Worth, TX or -97.33,32.75" />
+        </label>
+        <label>
+          Search radius (meters)
+          <input id="distanceInput" type="number" value="500" min="50" max="5000" />
+        </label>
+        <button id="fetchParcelsBtn">Fetch Parcels</button>
+
+        <h2>2. Clustering</h2>
+        <label>
+          Number of clusters
+          <input id="clusterCountInput" type="number" value="5" min="1" />
+        </label>
+        <button id="clusterBtn">Build Clusters</button>
+
+        <h2>3. Build Graph</h2>
+        <label>
+          Network type
+          <select id="networkTypeSelect"></select>
+        </label>
+        <label>
+          Routing strategy override
+          <select id="routingSelect"></select>
+        </label>
+        <label>
+          Secondary strategy override
+          <select id="secondarySelect"></select>
+        </label>
+        <label>
+          Primary buffer (m)
+          <input id="bufferInput" type="number" value="20" min="1" max="5000" />
+        </label>
+        <label>
+          Secondary buffer (m)
+          <input id="secondaryBufferInput" type="number" value="50" min="1" max="5000" />
+        </label>
+        <label>
+          Mesh spacing (m)
+          <input id="meshSpacingInput" type="number" value="50" min="5" max="1000" />
+        </label>
+        <button id="buildGraphBtn">Build Graph</button>
+
+        <h2>4. Compare Runs</h2>
+        <p class="small">Run two presets side-by-side against the same groups/source.</p>
+        <button id="compareBtn">Compare Presets</button>
+      </section>
+
+      <section class="card map-panel">
+        <div class="map-header">
+          <h2>Map Selection</h2>
+          <p>
+            Click map to set source point. Use location search above or polygon selection from map points.
+          </p>
+        </div>
+        <div id="map"></div>
+      </section>
+
+      <section class="card output">
+        <h2>Output</h2>
+        <pre id="output"></pre>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
