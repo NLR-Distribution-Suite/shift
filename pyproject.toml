@@ -39,6 +39,7 @@ dev = ["pre-commit", "pytest", "pytest-cov", "pytest-mock", "ruff==0.15.5", "sha
 doc = ["jupyter-book<2", "myst-parser", "autodoc_pydantic", "sphinxcontrib-bibtex"]
 mcp = ["mcp[cli]>=1.2.0", "pyyaml"]
 ui = ["fastapi>=0.110", "uvicorn>=0.29"]
+flow = ["gdm-flow>=0.3.2"]
 
 [project.scripts]
 shift-mcp-server = "shift.mcp_server.__main__:main"

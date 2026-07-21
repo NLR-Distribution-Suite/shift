@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from pathlib import Path
 import tempfile
 
@@ -10,6 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from gdm.quantities import ApparentPower, Voltage
 from infrasys import Location
 from infrasys.quantities import Distance
+from pyproj import Geod
+import numpy as np
+from sklearn.cluster import KMeans
 
 from shift.data_model import GeoLocation, GroupModel, TransformerPhaseMapperModel, TransformerTypes
 from shift.graph.prsgb import PRSG
@@ -26,6 +30,7 @@ from shift.graph.secondary import (
     MeshSteinerStrategy,
     OpenStreetSecondaryStrategy,
     RadialStrategy,
+    TrunkBranchStrategy,
 )
 from shift.mapper.balanced_phase_mapper import BalancedPhaseMapper
 from shift.mapper.edge_equipment_mapper import EdgeEquipmentMapper
@@ -39,15 +44,21 @@ from gdm.distribution import DistributionSystem as DatasetSystem
 from shift.parcel import parcels_from_location
 from shift.system_builder import DistributionSystemBuilder
 from shift.ui_api.models import (
+    BuildSystemFullRequest,
     BuildSystemRequest,
+    ClusterBalanceMode,
+    ClusterStrategyName,
     ClusterRequest,
     ConfigureEquipmentMapperRequest,
     ConfigurePhaseMapperRequest,
     ConfigureVoltageMapperRequest,
     ExportSystemRequest,
     FetchParcelsRequest,
+    GeoPoint,
     GraphBuildRequest,
+    MultiFeederBuildRequest,
     NetworkTypeName,
+    QuickBuildRequest,
     RoutingStrategyName,
     SecondaryStrategyName,
     StrategyCompareRequest,
@@ -55,38 +66,111 @@ from shift.ui_api.models import (
 from shift.ui_api.state import UiSessionState
 from shift.utils.get_cluster import get_kmeans_clusters
 
+_GEOD = Geod(ellps="WGS84")
 
-def _graph_metrics(graph) -> dict[str, float | int]:
+
+def _graph_metrics(graph) -> dict[str, float | int | bool]:
     total_length_m = 0.0
-    for _, _, edge in graph.get_edges():
-        if edge.length is not None:
-            total_length_m += float(edge.length.to("m").magnitude)
+    primary_edges = 0
+    secondary_edges = 0
+    transformer_edges = 0
+    primary_length_m = 0.0
+    secondary_length_m = 0.0
 
     transformers = 0
     loads = 0
+    source_nodes = 0
+    transformer_nodes = set()
+
     for node in graph.get_nodes():
         assets = node.assets or set()
         for asset in assets:
             name = getattr(asset, "__name__", str(asset))
             if name == "DistributionLoad":
                 loads += 1
+            if name == "DistributionVoltageSource":
+                source_nodes += 1
         if node.name.endswith("_ht"):
             transformers += 1
+            transformer_nodes.add(node.name)
+
+    # Classify edges as primary (source-side of transformer) or secondary (load-side)
+    # Build a set of nodes on the secondary side using DFS from transformer _ht nodes
+    dfs_tree = graph.get_dfs_tree()
+    secondary_node_set = set()
+    for tr_node in transformer_nodes:
+        import networkx as _nx
+
+        descendants = _nx.descendants(dfs_tree, tr_node)
+        secondary_node_set.update(descendants)
+        secondary_node_set.add(tr_node)
+
+    for from_name, to_name, edge in graph.get_edges():
+        length = float(edge.length.to("m").magnitude) if edge.length is not None else 0.0
+        total_length_m += length
+        edge_type = getattr(edge.edge_type, "__name__", str(edge.edge_type))
+        if edge_type == "DistributionTransformer":
+            transformer_edges += 1
+        elif from_name in secondary_node_set or to_name in secondary_node_set:
+            secondary_edges += 1
+            secondary_length_m += length
+        else:
+            primary_edges += 1
+            primary_length_m += length
+
+    node_count = len(list(graph.get_nodes()))
+    edge_count = len(list(graph.get_edges()))
+    is_radial = edge_count == node_count - 1  # tree: edges = nodes - 1
 
     return {
-        "node_count": len(list(graph.get_nodes())),
-        "edge_count": len(list(graph.get_edges())),
+        "node_count": node_count,
+        "edge_count": edge_count,
         "total_length_m": round(total_length_m, 2),
         "transformer_hint_count": transformers,
         "load_node_count": loads,
+        "is_radial": is_radial,
+        "primary_edges": primary_edges,
+        "primary_length_m": round(primary_length_m, 2),
+        "secondary_edges": secondary_edges,
+        "secondary_length_m": round(secondary_length_m, 2),
+        "transformer_edges": transformer_edges,
     }
+
+
+def _graph_geometry(graph) -> dict[str, list]:
+    """Extract node positions and edge segments for map rendering."""
+    node_map: dict[str, dict[str, float]] = {}
+    nodes_out: list[dict] = []
+    for node in graph.get_nodes():
+        loc = {"longitude": node.location.x, "latitude": node.location.y}
+        node_map[node.name] = loc
+        assets = []
+        if node.assets:
+            assets = [getattr(a, "__name__", str(a)) for a in node.assets]
+        nodes_out.append({"name": node.name, "location": loc, "assets": assets})
+
+    edges_out: list[dict] = []
+    for from_name, to_name, edge in graph.get_edges():
+        from_loc = node_map.get(from_name)
+        to_loc = node_map.get(to_name)
+        if from_loc and to_loc:
+            edge_type = getattr(edge.edge_type, "__name__", str(edge.edge_type))
+            edges_out.append(
+                {
+                    "from": from_loc,
+                    "to": to_loc,
+                    "type": edge_type,
+                    "name": edge.name,
+                }
+            )
+    return {"nodes": nodes_out, "edges": edges_out}
 
 
 def _resolve_strategies(payload: GraphBuildRequest):
     network_presets = {
         NetworkTypeName.BALANCED_DEFAULT: (
             RoutingStrategyName.STEINER,
-            SecondaryStrategyName.MESH_STEINER,
+            SecondaryStrategyName.OPENSTREET,
         ),
         NetworkTypeName.ROAD_OPTIMIZED: (
             RoutingStrategyName.WEIGHTED_STEINER,
@@ -94,7 +178,7 @@ def _resolve_strategies(payload: GraphBuildRequest):
         ),
         NetworkTypeName.FULL_ROAD_EXPLORATION: (
             RoutingStrategyName.FULL_ROAD,
-            SecondaryStrategyName.HUB_LINE,
+            SecondaryStrategyName.OPENSTREET,
         ),
     }
 
@@ -102,15 +186,43 @@ def _resolve_strategies(payload: GraphBuildRequest):
     routing_name = payload.routing_strategy or default_routing
     secondary_name = payload.secondary_strategy or default_secondary
 
+    auto_secondary_context: dict[str, float | str] = {}
+    if secondary_name == SecondaryStrategyName.AUTO_DENSITY:
+        candidate_points: list[GeoLocation] = []
+        groups = getattr(payload, "groups", None)
+        if groups:
+            candidate_points = [
+                GeoLocation(point.longitude, point.latitude)
+                for group in groups
+                for point in group.points
+            ]
+        else:
+            parcels = getattr(payload, "parcels", None) or []
+            for parcel in parcels:
+                center, _ = _centroid_and_area_m2(parcel.geometry)
+                candidate_points.append(center)
+
+        polygon_points = [
+            GeoLocation(p.longitude, p.latitude) for p in (getattr(payload, "polygon", None) or [])
+        ]
+        secondary_name, auto_secondary_context = _auto_select_secondary_strategy(
+            candidate_points=candidate_points,
+            polygon_points=polygon_points,
+            density_threshold_per_km2=payload.auto_secondary_density_threshold_per_km2,
+        )
+
     routing = {
         RoutingStrategyName.STEINER: SteinerTreeStrategy(),
-        RoutingStrategyName.WEIGHTED_STEINER: WeightedSteinerTreeStrategy(),
+        RoutingStrategyName.WEIGHTED_STEINER: WeightedSteinerTreeStrategy(
+            crossing_penalty=getattr(payload, "crossing_penalty", 1.0),
+        ),
         RoutingStrategyName.SHORTEST_PATH_TREE: ShortestPathTreeStrategy(),
         RoutingStrategyName.MIN_SPANNING_TREE: MinimumSpanningTreeStrategy(),
         RoutingStrategyName.FULL_ROAD: FullRoadGraphStrategy(),
     }[routing_name]
 
     secondary = {
+        SecondaryStrategyName.AUTO_DENSITY: DelaunayStrategy(),
         SecondaryStrategyName.MESH_STEINER: MeshSteinerStrategy(
             spacing=Distance(payload.secondary_mesh_spacing_meters, "m")
         ),
@@ -120,9 +232,292 @@ def _resolve_strategies(payload: GraphBuildRequest):
             buffer=Distance(payload.secondary_buffer_meters, "m")
         ),
         SecondaryStrategyName.HUB_LINE: HubLineStrategy(),
+        SecondaryStrategyName.TRUNK_BRANCH: TrunkBranchStrategy(
+            buffer=Distance(payload.secondary_buffer_meters, "m")
+        ),
     }[secondary_name]
 
-    return routing_name.value, secondary_name.value, routing, secondary
+    return routing_name.value, secondary_name.value, routing, secondary, auto_secondary_context
+
+
+def _centroid_and_area_m2(parcel_geometry) -> tuple[GeoLocation, float]:
+    if isinstance(parcel_geometry, list):
+        lons = [p.longitude for p in parcel_geometry]
+        lats = [p.latitude for p in parcel_geometry]
+        if len(lons) < 3:
+            return GeoLocation(lons[0], lats[0]), 0.0
+
+        # Close polygon ring for geodesic area if not already closed.
+        if lons[0] != lons[-1] or lats[0] != lats[-1]:
+            lons = [*lons, lons[0]]
+            lats = [*lats, lats[0]]
+
+        area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
+        centroid = GeoLocation(float(np.mean(lons[:-1])), float(np.mean(lats[:-1])))
+        return centroid, abs(float(area_m2))
+
+    return GeoLocation(parcel_geometry.longitude, parcel_geometry.latitude), 0.0
+
+
+def _estimate_load_kva(area_m2: float, building_type: str | None) -> float:
+    btype = (building_type or "").lower()
+    kva_per_m2 = 0.02
+
+    if any(tag in btype for tag in ["industrial", "factory", "warehouse"]):
+        kva_per_m2 = 0.05
+    elif any(tag in btype for tag in ["commercial", "retail", "office", "school"]):
+        kva_per_m2 = 0.035
+    elif any(tag in btype for tag in ["hospital", "data", "critical"]):
+        kva_per_m2 = 0.06
+    elif any(tag in btype for tag in ["house", "residential", "apartments", "dorm"]):
+        kva_per_m2 = 0.02
+
+    # Keep tiny/point parcels from collapsing to near-zero weight.
+    return max(5.0, area_m2 * kva_per_m2)
+
+
+def _distance_m(a: GeoLocation, b: GeoLocation) -> float:
+    _, _, dist_m = _GEOD.inv(a.longitude, a.latitude, b.longitude, b.latitude)
+    return float(abs(dist_m))
+
+
+def _estimate_feeder_count(
+    *,
+    parcel_count: int,
+    region_area_km2: float,
+    target_parcels_per_feeder: int,
+    high_density_threshold_per_km2: float,
+    large_region_threshold_km2: float,
+    min_feeders: int,
+    max_feeders: int,
+) -> int:
+    base = max(1, int(np.ceil(parcel_count / max(1, target_parcels_per_feeder))))
+    density = parcel_count / max(region_area_km2, 0.01)
+
+    if density > high_density_threshold_per_km2:
+        base += 1
+    if region_area_km2 > large_region_threshold_km2:
+        base += 1
+
+    return max(min_feeders, min(max_feeders, base))
+
+
+def _region_area_km2_from_polygon(points: list[GeoLocation] | None) -> float:
+    if not points or len(points) < 3:
+        return 0.0
+
+    lons = [p.longitude for p in points]
+    lats = [p.latitude for p in points]
+    if lons[0] != lons[-1] or lats[0] != lats[-1]:
+        lons = [*lons, lons[0]]
+        lats = [*lats, lats[0]]
+
+    area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
+    return abs(float(area_m2)) / 1_000_000.0
+
+
+def _region_area_km2_from_points(points: list[GeoLocation]) -> float:
+    if not points or len(points) < 2:
+        return 0.0
+
+    min_lon = min(p.longitude for p in points)
+    max_lon = max(p.longitude for p in points)
+    min_lat = min(p.latitude for p in points)
+    max_lat = max(p.latitude for p in points)
+
+    lons = [min_lon, max_lon, max_lon, min_lon, min_lon]
+    lats = [min_lat, min_lat, max_lat, max_lat, min_lat]
+    area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
+    return abs(float(area_m2)) / 1_000_000.0
+
+
+def _auto_select_secondary_strategy(
+    *,
+    candidate_points: list[GeoLocation],
+    polygon_points: list[GeoLocation] | None,
+    density_threshold_per_km2: float,
+) -> tuple[SecondaryStrategyName, dict[str, float | str]]:
+    if len(candidate_points) < 4:
+        return SecondaryStrategyName.RADIAL, {
+            "auto_secondary_area_km2": 0.0,
+            "auto_secondary_density_per_km2": 0.0,
+            "auto_secondary_reason": "too_few_points",
+        }
+
+    area_km2 = _region_area_km2_from_polygon(polygon_points)
+    if area_km2 <= 0:
+        area_km2 = _region_area_km2_from_points(candidate_points)
+
+    density = len(candidate_points) / max(area_km2, 0.01)
+    strategy = (
+        SecondaryStrategyName.OPENSTREET
+        if density >= density_threshold_per_km2
+        else SecondaryStrategyName.DELAUNAY
+    )
+    return strategy, {
+        "auto_secondary_area_km2": round(area_km2, 4),
+        "auto_secondary_density_per_km2": round(density, 2),
+        "auto_secondary_reason": "density_threshold",
+    }
+
+
+def _build_area_aware_clusters(payload: ClusterRequest) -> list[GroupModel]:
+    if not payload.parcels:
+        raise ValueError("Area-aware clustering requires parcels payload.")
+
+    dedicated: list[GroupModel] = []
+    shared_points: list[GeoLocation] = []
+    shared_weights: list[float] = []
+
+    for parcel in payload.parcels:
+        center, area_m2 = _centroid_and_area_m2(parcel.geometry)
+        if area_m2 >= payload.dedicated_transformer_area_m2:
+            dedicated.append(GroupModel(center=center, points=[center]))
+        else:
+            shared_points.append(center)
+            shared_weights.append(max(area_m2, 1.0))
+
+    grouped: list[GroupModel] = []
+    if shared_points:
+        total_area = float(sum(shared_weights))
+        est_clusters = max(
+            1,
+            int(np.ceil(total_area / max(payload.target_area_per_transformer_m2, 1.0))),
+        )
+        est_clusters = max(payload.min_clusters, est_clusters)
+        est_clusters = min(est_clusters, len(shared_points))
+        if payload.max_clusters is not None:
+            est_clusters = min(est_clusters, payload.max_clusters)
+
+        coords = np.array([(p.longitude, p.latitude) for p in shared_points])
+        model = KMeans(n_clusters=est_clusters, random_state=0)
+        model.fit(coords, sample_weight=np.array(shared_weights))
+
+        for idx, center in enumerate(model.cluster_centers_):
+            points = [
+                shared_points[i] for i, label in enumerate(model.labels_) if int(label) == idx
+            ]
+            grouped.append(
+                GroupModel(
+                    center=GeoLocation(float(center[0]), float(center[1])),
+                    points=points,
+                )
+            )
+
+    return [*dedicated, *grouped]
+
+
+def _build_capacity_distance_clusters(payload: ClusterRequest) -> list[GroupModel]:  # noqa: C901
+    if not payload.parcels:
+        raise ValueError("Capacity-distance clustering requires parcels payload.")
+
+    dedicated: list[GroupModel] = []
+    shared_entries: list[dict] = []
+    for parcel in payload.parcels:
+        center, area_m2 = _centroid_and_area_m2(parcel.geometry)
+        load_kva = _estimate_load_kva(area_m2, parcel.building_type)
+
+        if (
+            area_m2 >= payload.dedicated_transformer_area_m2
+            or load_kva >= payload.dedicated_transformer_load_kva
+        ):
+            dedicated.append(GroupModel(center=center, points=[center]))
+        else:
+            shared_entries.append({"point": center, "load_kva": load_kva})
+
+    if not shared_entries:
+        return dedicated
+
+    total_load = float(sum(e["load_kva"] for e in shared_entries))
+    est_clusters = max(1, int(round(total_load / payload.target_kva_per_transformer)))
+    est_clusters = max(payload.min_clusters, est_clusters)
+    est_clusters = min(est_clusters, len(shared_entries))
+    if payload.max_clusters is not None:
+        est_clusters = min(est_clusters, payload.max_clusters)
+
+    coords = np.array([(e["point"].longitude, e["point"].latitude) for e in shared_entries])
+    weights = np.array([e["load_kva"] for e in shared_entries])
+    model = KMeans(n_clusters=est_clusters, random_state=0)
+    model.fit(coords, sample_weight=weights)
+
+    centers: list[GeoLocation] = [
+        GeoLocation(float(c[0]), float(c[1])) for c in model.cluster_centers_
+    ]
+    assignments: list[list[GeoLocation]] = [[] for _ in centers]
+    remaining_capacity: list[float] = [payload.target_kva_per_transformer for _ in centers]
+
+    # Assign heaviest parcels first so capacity constraints are respected better.
+    ordered = sorted(shared_entries, key=lambda e: e["load_kva"], reverse=True)
+    for entry in ordered:
+        point = entry["point"]
+        load_kva = float(entry["load_kva"])
+
+        ranked = sorted(
+            range(len(centers)),
+            key=lambda i: _distance_m(point, centers[i]),
+        )
+
+        placed = False
+        for i in ranked:
+            if _distance_m(point, centers[i]) > payload.max_secondary_length_m:
+                continue
+            if remaining_capacity[i] < load_kva:
+                continue
+            assignments[i].append(point)
+            remaining_capacity[i] -= load_kva
+            placed = True
+            break
+
+        if not placed:
+            # Create a dedicated cluster for constraint-violating parcels.
+            centers.append(point)
+            assignments.append([point])
+            remaining_capacity.append(max(payload.target_kva_per_transformer, load_kva) - load_kva)
+
+    grouped: list[GroupModel] = []
+    for i, points in enumerate(assignments):
+        if not points:
+            continue
+        center = centers[i]
+        grouped.append(GroupModel(center=center, points=points))
+
+    return [*dedicated, *grouped]
+
+
+def _build_balanced_kmeans_clusters(
+    points: list[GeoLocation], num_clusters: int
+) -> list[GroupModel]:
+    if len(points) < num_clusters:
+        raise ValueError("num_clusters must be <= number of points")
+
+    coords = np.array([(p.longitude, p.latitude) for p in points])
+    model = KMeans(n_clusters=num_clusters, random_state=0)
+    model.fit(coords)
+    centers = [GeoLocation(float(c[0]), float(c[1])) for c in model.cluster_centers_]
+
+    distances = np.linalg.norm(coords[:, None, :] - model.cluster_centers_[None, :, :], axis=2)
+    order = np.argsort(np.min(distances, axis=1))
+
+    max_size = int(np.ceil(len(points) / num_clusters))
+    assignments: list[list[GeoLocation]] = [[] for _ in range(num_clusters)]
+    counts = [0 for _ in range(num_clusters)]
+
+    for idx in order:
+        ranked = np.argsort(distances[idx])
+        for cluster_idx in ranked:
+            cluster_idx = int(cluster_idx)
+            if counts[cluster_idx] < max_size:
+                assignments[cluster_idx].append(points[int(idx)])
+                counts[cluster_idx] += 1
+                break
+
+    groups = []
+    for cluster_idx, cluster_points in enumerate(assignments):
+        if not cluster_points:
+            continue
+        groups.append(GroupModel(center=centers[cluster_idx], points=cluster_points))
+
+    return groups
 
 
 def create_app() -> FastAPI:  # noqa: C901
@@ -145,6 +540,8 @@ def create_app() -> FastAPI:  # noqa: C901
     def options() -> dict:
         return {
             "network_types": [x.value for x in NetworkTypeName],
+            "cluster_strategies": [x.value for x in ClusterStrategyName],
+            "cluster_balance_modes": [x.value for x in ClusterBalanceMode],
             "routing_strategies": [x.value for x in RoutingStrategyName],
             "secondary_strategies": [x.value for x in SecondaryStrategyName],
             "phase_methods": ["agglomerative", "kmean", "greedy"],
@@ -181,13 +578,67 @@ def create_app() -> FastAPI:  # noqa: C901
     @app.post("/api/clusters/build")
     def build_clusters(payload: ClusterRequest) -> dict:
         try:
-            if len(payload.points) < payload.num_clusters:
-                raise ValueError("num_clusters must be <= number of points")
-            points = [GeoLocation(p.longitude, p.latitude) for p in payload.points]
-            clusters = get_kmeans_clusters(payload.num_clusters, points)
+            uses_num_clusters = payload.strategy == ClusterStrategyName.KMEANS_COUNT
+            strategy_details: dict[str, float | int | str | bool] = {}
+            if payload.strategy == ClusterStrategyName.AREA_AWARE:
+                clusters = _build_area_aware_clusters(payload)
+                parcel_areas: list[float] = []
+                dedicated_count = 0
+                shared_area_total = 0.0
+                for parcel in payload.parcels:
+                    _, area_m2 = _centroid_and_area_m2(parcel.geometry)
+                    parcel_areas.append(area_m2)
+                    if area_m2 >= payload.dedicated_transformer_area_m2:
+                        dedicated_count += 1
+                    else:
+                        shared_area_total += max(area_m2, 1.0)
+
+                strategy_details = {
+                    "area_aware_input_target_area_m2": payload.target_area_per_transformer_m2,
+                    "area_aware_input_dedicated_threshold_m2": payload.dedicated_transformer_area_m2,
+                    "area_aware_total_parcels": len(payload.parcels),
+                    "area_aware_dedicated_parcels": dedicated_count,
+                    "area_aware_shared_parcels": len(payload.parcels) - dedicated_count,
+                    "area_aware_shared_area_total_m2": round(shared_area_total, 2),
+                    "area_aware_estimated_shared_clusters_raw": int(
+                        np.ceil(
+                            shared_area_total / max(payload.target_area_per_transformer_m2, 1.0)
+                        )
+                    )
+                    if (len(payload.parcels) - dedicated_count) > 0
+                    else 0,
+                    "area_aware_num_clusters_input_used": False,
+                    "area_aware_estimation_method": "ceil(total_shared_area/target_area)",
+                    "area_aware_min_parcel_area_m2": round(min(parcel_areas), 2)
+                    if parcel_areas
+                    else 0.0,
+                    "area_aware_max_parcel_area_m2": round(max(parcel_areas), 2)
+                    if parcel_areas
+                    else 0.0,
+                }
+            elif payload.strategy == ClusterStrategyName.CAPACITY_DISTANCE:
+                clusters = _build_capacity_distance_clusters(payload)
+                strategy_details = {
+                    "capacity_distance_num_clusters_input_used": False,
+                    "capacity_distance_estimation_method": "derived_from_load_and_distance_constraints",
+                }
+            else:
+                if len(payload.points) < payload.num_clusters:
+                    raise ValueError("num_clusters must be <= number of points")
+                points = [GeoLocation(p.longitude, p.latitude) for p in payload.points]
+                if payload.balance_mode == ClusterBalanceMode.BALANCED:
+                    clusters = _build_balanced_kmeans_clusters(points, payload.num_clusters)
+                else:
+                    clusters = get_kmeans_clusters(payload.num_clusters, points)
+
             return {
                 "success": True,
                 "count": len(clusters),
+                "strategy": payload.strategy.value,
+                "balance_mode": payload.balance_mode.value,
+                "input_num_clusters": payload.num_clusters,
+                "uses_num_clusters": uses_num_clusters,
+                "strategy_details": strategy_details,
                 "clusters": [serialize_group(c) for c in clusters],
             }
         except Exception as exc:
@@ -208,7 +659,9 @@ def create_app() -> FastAPI:  # noqa: C901
                 payload.source_location.latitude,
             )
 
-            routing_name, secondary_name, routing, secondary = _resolve_strategies(payload)
+            routing_name, secondary_name, routing, secondary, auto_secondary_context = (
+                _resolve_strategies(payload)
+            )
 
             builder = PRSG(
                 groups=groups,
@@ -216,6 +669,9 @@ def create_app() -> FastAPI:  # noqa: C901
                 buffer=Distance(payload.buffer_meters, "m"),
                 routing_strategy=routing,
                 secondary_strategy=secondary,
+                offline=getattr(payload, "offline", False),
+                snap_to_roads=getattr(payload, "snap_to_roads", True),
+                snap_threshold_m=getattr(payload, "snap_threshold_m", 50.0),
             )
             graph = builder.get_distribution_graph()
             graph_id = state.new_id("graph")
@@ -230,8 +686,49 @@ def create_app() -> FastAPI:  # noqa: C901
                     "secondary_strategy": secondary_name,
                 }
             )
-            return {"success": True, "summary": summary}
+            if auto_secondary_context:
+                summary.update(auto_secondary_context)
+            geometry = _graph_geometry(graph)
+            return {"success": True, "summary": summary, "geometry": geometry}
         except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/roads/network")
+    def get_road_network_geometry(payload: GraphBuildRequest) -> dict:
+        """Return raw road network geometry for map visualization."""
+        try:
+            from shift.openstreet_roads import get_road_network
+            from shift.utils.polygon_from_points import get_polygon_from_points
+
+            points = []
+            for g in payload.groups:
+                for p in g.points:
+                    points.append(GeoLocation(p.longitude, p.latitude))
+            if not points and payload.polygon:
+                points = [GeoLocation(p.longitude, p.latitude) for p in payload.polygon]
+
+            if not points:
+                raise HTTPException(status_code=400, detail="No points to define road area")
+
+            polygon = get_polygon_from_points(points, Distance(payload.buffer_meters, "m"))
+            road_graph = get_road_network(polygon, reduce_to_mst=False)
+
+            # Extract edges as line segments
+            edges = []
+            for u, v in road_graph.edges():
+                ud = road_graph.nodes[u]
+                vd = road_graph.nodes[v]
+                if "x" in ud and "y" in ud and "x" in vd and "y" in vd:
+                    edges.append(
+                        {
+                            "from": {"latitude": ud["y"], "longitude": ud["x"]},
+                            "to": {"latitude": vd["y"], "longitude": vd["x"]},
+                        }
+                    )
+            return {"success": True, "edge_count": len(edges), "edges": edges}
+        except Exception as exc:
+            traceback.print_exc()
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/graph/compare")
@@ -241,6 +738,104 @@ def create_app() -> FastAPI:  # noqa: C901
             result = build_graph(build)
             runs.append({"run": idx, **result["summary"]})
         return {"success": True, "runs": runs}
+
+    @app.post("/api/feeders/auto-build")
+    def auto_build_feeders(payload: MultiFeederBuildRequest) -> dict:
+        if not payload.parcels:
+            raise HTTPException(status_code=400, detail="Parcels are required.")
+
+        try:
+            parcel_entries = []
+            for p in payload.parcels:
+                center, _ = _centroid_and_area_m2(p.geometry)
+                parcel_entries.append({"parcel": p, "center": center})
+
+            region_points = [
+                GeoLocation(pt.longitude, pt.latitude) for pt in payload.polygon or []
+            ]
+            region_area_km2 = _region_area_km2_from_polygon(region_points)
+
+            feeder_count = _estimate_feeder_count(
+                parcel_count=len(parcel_entries),
+                region_area_km2=region_area_km2,
+                target_parcels_per_feeder=payload.target_parcels_per_feeder,
+                high_density_threshold_per_km2=payload.high_density_threshold_per_km2,
+                large_region_threshold_km2=payload.large_region_threshold_km2,
+                min_feeders=payload.min_feeders,
+                max_feeders=payload.max_feeders,
+            )
+
+            feeder_count = min(feeder_count, len(parcel_entries))
+            coords = np.array(
+                [(e["center"].longitude, e["center"].latitude) for e in parcel_entries]
+            )
+            model = KMeans(n_clusters=feeder_count, random_state=0)
+            model.fit(coords)
+
+            routing_name, secondary_name, routing, secondary, auto_secondary_context = (
+                _resolve_strategies(payload)
+            )
+
+            feeder_summaries = []
+            for idx in range(feeder_count):
+                feeder_points = [
+                    parcel_entries[i]["center"]
+                    for i, lbl in enumerate(model.labels_)
+                    if int(lbl) == idx
+                ]
+                if not feeder_points:
+                    continue
+
+                tx_clusters = max(
+                    1, int(np.ceil(len(feeder_points) / payload.parcels_per_transformer))
+                )
+                groups = get_kmeans_clusters(tx_clusters, feeder_points)
+
+                source = GeoLocation(
+                    float(np.mean([p.longitude for p in feeder_points])),
+                    float(np.mean([p.latitude for p in feeder_points])),
+                )
+
+                builder = PRSG(
+                    groups=groups,
+                    source_location=source,
+                    buffer=Distance(payload.buffer_meters, "m"),
+                    routing_strategy=routing,
+                    secondary_strategy=secondary,
+                )
+                graph = builder.get_distribution_graph()
+                graph_id = state.new_id("graph")
+                state.graphs[graph_id] = graph
+
+                summary = serialize_graph_summary(graph, graph_id)
+                summary.update(_graph_metrics(graph))
+                summary.update(
+                    {
+                        "feeder_index": idx + 1,
+                        "parcel_count": len(feeder_points),
+                        "transformer_group_count": len(groups),
+                        "source_location": {
+                            "longitude": source.longitude,
+                            "latitude": source.latitude,
+                        },
+                    }
+                )
+                feeder_summaries.append(summary)
+
+            density = len(parcel_entries) / max(region_area_km2, 0.01)
+            return {
+                "success": True,
+                "requested_parcels": len(parcel_entries),
+                "region_area_km2": round(region_area_km2, 4),
+                "parcel_density_per_km2": round(density, 2),
+                "estimated_feeder_count": feeder_count,
+                "routing_strategy": routing_name,
+                "secondary_strategy": secondary_name,
+                "auto_secondary": auto_secondary_context,
+                "feeders": feeder_summaries,
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/graph/{graph_id}/transformers")
     def list_transformers(graph_id: str) -> dict:
@@ -406,6 +1001,581 @@ def create_app() -> FastAPI:  # noqa: C901
             filename=f"{system_name}.json",
             media_type="application/json",
         )
+
+    @app.post("/api/system/fix-violations")
+    def fix_system_violations(payload: dict) -> dict:
+        """Run gdm-flow violation fix loop on a built system.
+
+        Requires the optional 'flow' extra: pip install nrel-shift[flow]
+        """
+        try:
+            from gdm_flow.fix import fix_violations
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="gdm-flow not installed. Install with: pip install nrel-shift[flow]",
+            )
+
+        system_name = payload.get("system_name")
+        if not system_name or system_name not in state.systems:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unknown system '{system_name}'. Build a system first.",
+            )
+
+        system = state.systems[system_name]
+        max_iterations = int(payload.get("max_iterations", 10))
+        solver = payload.get("solver", "ldf")
+        vm_min_pu = float(payload.get("vm_min_pu", 0.95))
+        vm_max_pu = float(payload.get("vm_max_pu", 1.05))
+
+        try:
+            result = fix_violations(
+                system,
+                max_iterations=max_iterations,
+                solver=solver,
+                vm_min_pu=vm_min_pu,
+                vm_max_pu=vm_max_pu,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        # If fixes were applied, re-export and update download
+        download_url = None
+        if result.total_actions > 0:
+            out = Path(tempfile.gettempdir()) / f"{system_name}_fixed.json"
+            system.to_json(str(out), overwrite=True)
+            # Store as a separate fixed system for download
+            state.systems[f"{system_name}_fixed"] = system
+            download_url = f"/api/system/{system_name}_fixed/download"
+
+        return {
+            "success": result.success,
+            "message": result.message,
+            "initial_voltage_violations": result.initial_voltage_violations,
+            "initial_loading_violations": result.initial_loading_violations,
+            "final_voltage_violations": result.final_voltage_violations,
+            "final_loading_violations": result.final_loading_violations,
+            "total_actions": result.total_actions,
+            "iterations": len(result.iterations),
+            "iteration_details": [
+                {
+                    "iteration": it.iteration,
+                    "voltage_violations": it.voltage_violations,
+                    "loading_violations": it.loading_violations,
+                    "actions": [a.description for a in it.actions],
+                }
+                for it in result.iterations
+            ],
+            "download_url": download_url,
+        }
+
+    @app.post("/api/config/local-pbf")
+    def configure_local_pbf(payload: dict) -> dict:
+        """Set the local PBF file path for offline building/road extraction."""
+        from shift.openstreet_roads import set_local_pbf
+
+        path = payload.get("pbf_path", "")
+        if not path or not Path(path).exists():
+            raise HTTPException(status_code=400, detail=f"PBF file not found: {path}")
+        set_local_pbf(path)
+        return {"success": True, "pbf_path": path}
+
+    @app.post("/api/clusters/snap-to-roads")
+    def snap_clusters_to_roads(payload: dict) -> dict:  # noqa: C901
+        """Snap cluster centers to nearest road nodes using local PBF."""
+        from shift.openstreet_roads import extract_from_pbf, get_local_pbf, get_road_network
+        from shift.utils.split_network_edges import get_distance_between_points
+
+        clusters = payload.get("clusters", [])
+        threshold_m = payload.get("threshold_m", 50.0)
+        polygon = payload.get("polygon", [])
+
+        if not clusters:
+            raise HTTPException(status_code=400, detail="No clusters provided.")
+
+        try:
+            # Get road network: try local PBF, fall back to Overpass
+            road_graph = None
+            if get_local_pbf() and polygon and len(polygon) >= 3:
+                lons = [p["longitude"] for p in polygon]
+                lats = [p["latitude"] for p in polygon]
+                bbox = (min(lons), min(lats), max(lons), max(lats))
+                xml_path = extract_from_pbf(bbox)
+                try:
+                    import osmnx as ox
+
+                    road_graph = ox.graph_from_xml(xml_path).to_undirected()
+                except Exception:
+                    pass
+                Path(xml_path).unlink(missing_ok=True)
+
+            if road_graph is None:
+                # Try Overpass
+                try:
+                    all_pts = [
+                        GeoLocation(c["center"]["longitude"], c["center"]["latitude"])
+                        for c in clusters
+                    ]
+                    from shift.utils.polygon_from_points import get_polygon_from_points
+
+                    poly = get_polygon_from_points(all_pts, Distance(50, "m"))
+                    road_graph = get_road_network(poly, reduce_to_mst=False)
+                except Exception:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No road data available (local PBF or Overpass required).",
+                    )
+
+            if not road_graph or not road_graph.nodes:
+                raise HTTPException(status_code=400, detail="Empty road network for this area.")
+
+            # Build edge segments for projection
+            edge_segments = []
+            for u, v in list(road_graph.edges()):
+                ux, uy = road_graph.nodes[u]["x"], road_graph.nodes[u]["y"]
+                vx, vy = road_graph.nodes[v]["x"], road_graph.nodes[v]["y"]
+                edge_segments.append((ux, uy, vx, vy))
+
+            from shift.graph.prsgb import _project_point_to_segment
+
+            snapped = []
+            snap_count = 0
+            for cluster in clusters:
+                center = cluster["center"]
+                cx, cy = center["longitude"], center["latitude"]
+                center_geo = GeoLocation(cx, cy)
+                parcel_points = [
+                    GeoLocation(p["longitude"], p["latitude"]) for p in cluster.get("points", [])
+                ]
+
+                # Project center onto every road edge, find closest
+                candidates = []
+                for ax, ay, bx, by in edge_segments:
+                    px, py, _ = _project_point_to_segment(cx, cy, ax, ay, bx, by)
+                    proj_geo = GeoLocation(px, py)
+                    dist = get_distance_between_points(center_geo, proj_geo).to("m").magnitude
+                    if dist <= threshold_m:
+                        if parcel_points:
+                            total_parcel = sum(
+                                get_distance_between_points(proj_geo, pp).to("m").magnitude
+                                for pp in parcel_points
+                            )
+                        else:
+                            total_parcel = dist
+                        candidates.append((px, py, dist, total_parcel))
+
+                if not candidates:
+                    snapped.append({**cluster, "snapped": False, "snap_distance_m": 999.0})
+                    continue
+
+                # Pick the projection minimizing total parcel distance
+                best = min(candidates, key=lambda c: c[3])
+                new_center = {"longitude": float(best[0]), "latitude": float(best[1])}
+                snapped.append(
+                    {
+                        **cluster,
+                        "center": new_center,
+                        "snapped": True,
+                        "snap_distance_m": round(best[2], 1),
+                    }
+                )
+                snap_count += 1
+
+            return {
+                "success": True,
+                "clusters": snapped,
+                "snapped_count": snap_count,
+                "total": len(clusters),
+                "threshold_m": threshold_m,
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/parcels/fetch-local")
+    def fetch_parcels_local(payload: dict) -> dict:
+        """Fetch parcels from local PBF via osmium extract + OSMnx XML parsing."""
+        from shift.openstreet_roads import extract_from_pbf, get_local_pbf
+
+        if not get_local_pbf():
+            raise HTTPException(
+                status_code=400,
+                detail="No local PBF configured. POST /api/config/local-pbf first.",
+            )
+
+        polygon = payload.get("polygon", [])
+        if len(polygon) < 3:
+            raise HTTPException(status_code=400, detail="Polygon needs at least 3 points.")
+
+        try:
+            lons = [p["longitude"] for p in polygon]
+            lats = [p["latitude"] for p in polygon]
+            bbox = (min(lons), min(lats), max(lons), max(lats))
+
+            # Extract from PBF
+            xml_path = extract_from_pbf(bbox)
+
+            # Parse buildings from XML (handle broken relations gracefully)
+            import xml.etree.ElementTree as ET
+
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+
+            # Build node lookup
+            nodes_map = {}
+            for node_el in root.findall("node"):
+                nid = node_el.get("id")
+                nodes_map[nid] = {
+                    "longitude": float(node_el.get("lon")),
+                    "latitude": float(node_el.get("lat")),
+                }
+
+            # Extract building ways and filter by actual polygon
+            from shapely.geometry import Point as _ShapelyPoint, Polygon as _ShapelyPolygon
+
+            user_polygon = _ShapelyPolygon([(p["longitude"], p["latitude"]) for p in polygon])
+
+            parcels = []
+            for way_el in root.findall("way"):
+                tags = {t.get("k"): t.get("v") for t in way_el.findall("tag")}
+                if "building" not in tags:
+                    continue
+                nd_refs = [nd.get("ref") for nd in way_el.findall("nd")]
+                coords = [nodes_map[ref] for ref in nd_refs if ref in nodes_map]
+                if len(coords) < 3:
+                    continue
+
+                # Check if centroid falls within the user's polygon
+                avg_lon = sum(c["longitude"] for c in coords) / len(coords)
+                avg_lat = sum(c["latitude"] for c in coords) / len(coords)
+                if not user_polygon.contains(_ShapelyPoint(avg_lon, avg_lat)):
+                    continue
+
+                parcels.append(
+                    {
+                        "name": f"parcel_{len(parcels)}",
+                        "building_type": tags.get("building", "yes"),
+                        "city": tags.get("addr:city", ""),
+                        "state": tags.get("addr:state", ""),
+                        "postal_address": tags.get("addr:street", ""),
+                        "geometry": coords,
+                    }
+                )
+
+            # Clean up temp file
+            Path(xml_path).unlink(missing_ok=True)
+
+            return {
+                "success": True,
+                "count": len(parcels),
+                "parcels": parcels,
+                "source": "local_pbf",
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/system/quick-build")
+    def quick_build_system(payload: QuickBuildRequest) -> dict:  # noqa: C901
+        """Polygon + source → parcels → clusters → graph → GDM system in one call."""
+        try:
+            # 1. Fetch parcels
+            loc = [GeoLocation(p.longitude, p.latitude) for p in payload.polygon]
+            try:
+                raw_parcels = parcels_from_location(loc, Distance(500, "m"))
+                raw_parcels = raw_parcels or []
+            except Exception:
+                raw_parcels = []
+            if not raw_parcels:
+                raise ValueError("No parcels found in polygon.")
+
+            # 2. Cluster (area-aware)
+            parcel_data = [serialize_parcel(p) for p in raw_parcels]
+            from shift.ui_api.models import ParcelInput, ClusterRequest, ClusterStrategyName
+
+            parcel_inputs = []
+            for pd_item in parcel_data:
+                geom = pd_item["geometry"]
+                if isinstance(geom, list):
+                    geo_pts = [
+                        GeoPoint(longitude=g["longitude"], latitude=g["latitude"]) for g in geom
+                    ]
+                else:
+                    geo_pts = [GeoPoint(longitude=geom["longitude"], latitude=geom["latitude"])]
+                parcel_inputs.append(
+                    ParcelInput(
+                        name=pd_item.get("name"),
+                        building_type=pd_item.get("building_type"),
+                        geometry=geo_pts,
+                    )
+                )
+
+            cluster_req = ClusterRequest(
+                strategy=ClusterStrategyName.AREA_AWARE,
+                parcels=parcel_inputs,
+                points=[],
+                target_area_per_transformer_m2=payload.target_area_per_transformer_m2,
+                dedicated_transformer_area_m2=payload.dedicated_transformer_area_m2,
+            )
+            clusters = _build_area_aware_clusters(cluster_req)
+
+            # 3. Build graph
+            source_loc = GeoLocation(
+                payload.source_location.longitude, payload.source_location.latitude
+            )
+            from shift.graph.secondary import DelaunayStrategy as _DS, RadialStrategy as _RS
+
+            sec_strategy = {"DelaunayStrategy": _DS(), "RadialStrategy": _RS()}.get(
+                payload.secondary_strategy, _DS()
+            )
+            prsg = PRSG(
+                groups=clusters,
+                source_location=source_loc,
+                buffer=Distance(20, "m"),
+                secondary_strategy=sec_strategy,
+                offline=payload.offline,
+            )
+            graph = prsg.get_distribution_graph()
+            graph_id = state.new_id("graph")
+            state.graphs[graph_id] = graph
+
+            # 4. Build GDM system
+            build_req = BuildSystemFullRequest(
+                graph_id=graph_id,
+                system_name=payload.system_name,
+                transformer_type=payload.transformer_type,
+                transformer_capacity_kva=payload.transformer_capacity_kva,
+                primary_voltage_kv=payload.primary_voltage_kv,
+                secondary_voltage_kv=payload.secondary_voltage_kv,
+                catalog_path=payload.catalog_path,
+            )
+            sys_result = build_system_full(build_req)
+
+            geometry = _graph_geometry(graph)
+            graph_summary = serialize_graph_summary(graph, graph_id)
+            graph_summary.update(_graph_metrics(graph))
+
+            return {
+                "success": True,
+                "parcels_count": len(parcel_data),
+                "clusters_count": len(clusters),
+                "graph_summary": graph_summary,
+                "geometry": geometry,
+                "system_name": sys_result.get("system_name"),
+                "download_url": sys_result.get("download_url"),
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/system/build-full")
+    def build_system_full(payload: BuildSystemFullRequest) -> dict:  # noqa: C901
+        """One-shot: configure mappers + build + export a GDM system."""
+        graph = state.graphs.get(payload.graph_id)
+        if graph is None:
+            raise HTTPException(status_code=404, detail=f"Unknown graph_id {payload.graph_id}")
+
+        try:
+            from functools import cached_property as _cached_property
+            from gdm.distribution.equipment import (
+                DistributionTransformerEquipment,
+                LoadEquipment,
+                PhaseLoadEquipment,
+                VoltageSourceEquipment,
+                PhaseVoltageSourceEquipment,
+            )
+            from gdm.distribution.components import DistributionVoltageSource, DistributionLoad
+            from gdm.distribution.components import DistributionTransformer as _DT
+            from gdm.distribution.enums import VoltageTypes
+            from gdm.quantities import Reactance, ActivePower as _AP, ReactivePower as _RP
+            from infrasys.quantities import Resistance, Angle
+            from shift.data_model import TransformerVoltageModel as _TVM
+
+            # Phase mapper
+            tr_models = []
+            for from_node, _, edge in graph.get_edges():
+                if edge.edge_type is not _DT:
+                    continue
+                tr_models.append(
+                    TransformerPhaseMapperModel(
+                        tr_name=edge.name,
+                        tr_type=TransformerTypes(payload.transformer_type),
+                        tr_capacity=ApparentPower(payload.transformer_capacity_kva, "kVA"),
+                        location=graph.get_node(from_node).location,
+                    )
+                )
+            phase_mapper = BalancedPhaseMapper(graph, tr_models, method=payload.phase_method)
+
+            # Voltage mapper
+            v_models = [
+                _TVM(
+                    name=edge.name,
+                    voltages=[
+                        Voltage(payload.primary_voltage_kv, "kV"),
+                        Voltage(payload.secondary_voltage_kv, "kV"),
+                    ],
+                )
+                for _, _, edge in graph.get_edges()
+                if edge.edge_type is _DT
+            ]
+            voltage_mapper = TransformerVoltageMapper(graph, v_models)
+
+            # Load catalog if provided, else try auto-detect voltages
+            catalog = None
+            if payload.catalog_path:
+                from gdm.distribution import DistributionSystem as _DS
+
+                catalog = _DS.from_json(Path(payload.catalog_path))
+                # Auto-adjust voltages to match catalog
+                cat_xfmrs = list(catalog.get_components(DistributionTransformerEquipment))
+                if cat_xfmrs:
+                    wdg_vs = [w.rated_voltage for w in cat_xfmrs[0].windings]
+                    pri = max(wdg_vs).to("kV").magnitude
+                    sec = min(wdg_vs).to("kV").magnitude
+                    v_models = [
+                        _TVM(
+                            name=edge.name,
+                            voltages=[Voltage(pri, "kV"), Voltage(sec, "kV")],
+                        )
+                        for _, _, edge in graph.get_edges()
+                        if edge.edge_type is _DT
+                    ]
+                    voltage_mapper = TransformerVoltageMapper(graph, v_models)
+                    payload.primary_voltage_kv = pri
+                    payload.secondary_voltage_kv = sec
+
+            # Equipment mapper with default loads
+            class _FullMapper(EdgeEquipmentMapper):
+                @_cached_property
+                def node_asset_equipment_mapping(self):
+                    mapping = {}
+                    load_equips = (
+                        list(self.catalog_sys.get_components(LoadEquipment))
+                        if self.catalog_sys
+                        else []
+                    )
+                    if load_equips:
+                        default_load = load_equips[0]
+                    else:
+                        default_load = LoadEquipment(
+                            name="default_load",
+                            phase_loads=[
+                                PhaseLoadEquipment(
+                                    name="default_phase_load",
+                                    real_power=_AP(10, "kilowatt"),
+                                    reactive_power=_RP(3, "kilovar"),
+                                    z_real=0,
+                                    z_imag=0,
+                                    i_real=0,
+                                    i_imag=0,
+                                    p_real=1,
+                                    p_imag=1,
+                                )
+                            ],
+                        )
+                    vsrc = VoltageSourceEquipment(
+                        name="default_vsource",
+                        sources=[
+                            PhaseVoltageSourceEquipment(
+                                name=f"vsrc_{i}",
+                                r0=Resistance(0.001, "ohm"),
+                                r1=Resistance(0.001, "ohm"),
+                                x0=Reactance(0.001, "ohm"),
+                                x1=Reactance(0.001, "ohm"),
+                                voltage=Voltage(payload.primary_voltage_kv, "kV"),
+                                voltage_type=VoltageTypes.LINE_TO_LINE,
+                                angle=Angle(i * 120, "degree"),
+                            )
+                            for i in range(3)
+                        ],
+                    )
+                    for node in self.graph.get_nodes():
+                        if not node.assets:
+                            continue
+                        nm = {}
+                        if DistributionLoad in node.assets:
+                            nm[DistributionLoad] = default_load
+                        if DistributionVoltageSource in node.assets:
+                            nm[DistributionVoltageSource] = vsrc
+                        if nm:
+                            mapping[node.name] = nm
+                    return mapping
+
+            if catalog is None:
+                # Create a minimal catalog with generic equipment
+                catalog = DatasetSystem(name="default_catalog", auto_add_composed_components=True)
+
+            eq_mapper = _FullMapper(
+                graph=graph,
+                catalog_sys=catalog,
+                voltage_mapper=voltage_mapper,
+                phase_mapper=phase_mapper,
+            )
+
+            builder = DistributionSystemBuilder(
+                name=payload.system_name,
+                dist_graph=graph,
+                phase_mapper=phase_mapper,
+                voltage_mapper=voltage_mapper,
+                equipment_mapper=eq_mapper,
+            )
+            system = builder.get_system()
+            state.systems[payload.system_name] = system
+
+            # Export
+            out = Path(tempfile.gettempdir()) / f"{payload.system_name}.json"
+            system.to_json(str(out), overwrite=True)
+
+            return {
+                "success": True,
+                "system_name": payload.system_name,
+                "components": system.to_records().shape[0]
+                if hasattr(system, "to_records")
+                else "built",
+                "download_url": f"/api/system/{payload.system_name}/download",
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # --- Server-Sent Events log stream ---
+    import asyncio
+    import queue
+    from loguru import logger as _loguru
+    from starlette.responses import StreamingResponse
+
+    _log_queue: queue.Queue = queue.Queue(maxsize=200)
+
+    class _QueueSink:
+        def write(self, message):
+            record = message.record
+            line = f"[{record['level'].name}] {record['name']}:{record['function']}:{record['line']} — {record['message']}"
+            try:
+                _log_queue.put_nowait(line)
+            except queue.Full:
+                try:
+                    _log_queue.get_nowait()
+                    _log_queue.put_nowait(line)
+                except queue.Empty:
+                    pass
+
+    _loguru.add(_QueueSink(), format="{message}", level="DEBUG")
+
+    @app.get("/api/logs/stream")
+    async def stream_logs():
+        async def _generate():
+            while True:
+                try:
+                    line = _log_queue.get_nowait()
+                    yield f"data: {line}\n\n"
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                await asyncio.sleep(0.3)
+
+        return StreamingResponse(_generate(), media_type="text/event-stream")
 
     @app.get("/api/session/summary")
     def session_summary() -> dict:
