@@ -152,6 +152,7 @@ def create_server() -> FastMCP:
         query,
         builder,
         route_existing,
+        layout_existing,
     )
     from shift.mcp_server.tools.mapper import phase, voltage, equipment
     from shift.mcp_server.tools.system import builder as sys_builder, export
@@ -168,6 +169,7 @@ def create_server() -> FastMCP:
     query.register(mcp)
     builder.register(mcp)
     route_existing.register(mcp)
+    layout_existing.register(mcp)
 
     phase.register(mcp)
     voltage.register(mcp)

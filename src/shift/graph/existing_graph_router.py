@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import networkx as nx
 from gdm.distribution.components import DistributionLoad, DistributionVoltageSource
@@ -37,6 +38,9 @@ from shift.exceptions import EmptyGraphError, InvalidInputError
 from shift.graph.distribution_graph import DistributionGraph
 from shift.graph.openstreet_graph_builder import OpenStreetGraphBuilder
 from shift.utils.get_cluster import get_kmeans_clusters
+
+if TYPE_CHECKING:
+    from shift.graph.layout import LayoutStrategy
 
 
 # Keywords used to infer node roles from PG-DiGress class labels.
@@ -251,13 +255,19 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
         use_road_network: bool = False,
         routing_strategy: str = "mst",
         topology_bias: float = 0.7,
+        polygon: list[GeoLocation] | None = None,
+        layout_strategy: "LayoutStrategy | None" = None,
     ):
         # groups are not used by this builder; pass an empty list to the base.
         super().__init__(groups=[], source_location=source_location)
-        if not parcels:
+        # A layout strategy positions nodes inside ``polygon`` and does not need
+        # parcel anchors; parcel-based embedding still requires them.
+        self.layout_strategy = layout_strategy
+        self.polygon = polygon
+        if not parcels and layout_strategy is None:
             raise InvalidInputError("At least one parcel location is required.")
         self.abstract_graph = abstract_graph
-        self.parcels = parcels
+        self.parcels = parcels or []
         self.source_node_index = source_node_index
         self.relaxation_iterations = max(0, int(relaxation_iterations))
         self.use_road_network = bool(use_road_network)
@@ -552,8 +562,18 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
         self._roles = roles
         self._ensure_connected(graph, roles.source)
 
-        anchors = self._anchor_positions(graph, roles)
-        pos = self._relaxed_positions(graph, anchors)
+        if self.layout_strategy is not None:
+            if not self.polygon:
+                raise InvalidInputError("A polygon is required for layout-based embedding.")
+            pos = self.layout_strategy.compute(
+                graph,
+                source_node=roles.source,
+                source_location=self.source_location,
+                polygon=self.polygon,
+            )
+        else:
+            anchors = self._anchor_positions(graph, roles)
+            pos = self._relaxed_positions(graph, anchors)
 
         # Relabel integer node ids to stable unique string names and write coords.
         embedded = nx.Graph()
