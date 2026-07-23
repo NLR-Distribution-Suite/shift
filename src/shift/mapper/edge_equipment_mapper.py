@@ -109,19 +109,6 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
     ) -> Component:
         """Internal method to return transformer equipment by capacity."""
 
-        def _transformer_summary(x: DistributionTransformerEquipment) -> dict:
-            return {
-                "name": x.name,
-                "is_center_tapped": bool(getattr(x, "is_center_tapped", False)),
-                "num_phases": [getattr(w, "num_phases", None) for w in x.windings],
-                "rated_powers_kva": [
-                    round(w.rated_power.to("kva").magnitude, 6) for w in x.windings
-                ],
-                "rated_voltages_kv": [
-                    round(w.rated_voltage.to("kilovolt").magnitude, 6) for w in x.windings
-                ],
-            }
-
         def filter_func(x: DistributionTransformerEquipment):
             min_capacity = min([wdg.rated_power.to("kva") for wdg in x.windings])
             if min_capacity < capacity:
@@ -167,13 +154,6 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             available_transformers = list(
                 self.catalog_sys.get_components(DistributionTransformerEquipment)
             )
-            comparable_candidates = []
-            for equipment in available_transformers:
-                if num_phase == 3 and equipment.windings[0].num_phases != 3:
-                    continue
-                if num_phase < 3 and equipment.windings[0].num_phases != min(num_phase, 1):
-                    continue
-                comparable_candidates.append(_transformer_summary(equipment))
 
             voltage_compatible_candidates = [
                 x
@@ -220,15 +200,71 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
                 )
                 return synthesized
 
-            logger.error(
-                "No transformer equipment match found. requested_capacity_kva={} requested_voltages_kv={} num_phase={} comparable_candidates={}",
-                round(capacity.to("kva").magnitude, 6),
+            # Full synthesis fallback: no catalog transformer matches the
+            # requested voltages, so build one from any phase-compatible template
+            # (or any transformer) and override its winding voltages/capacity to
+            # the requested values. This guarantees the build always finds a
+            # transformer rather than failing on an unusual voltage pairing.
+            templates = [x for x in available_transformers if phase_compatible_filter(x)]
+            if not templates:
+                templates = available_transformers
+            if not templates:
+                logger.error(
+                    "No transformer equipment available to synthesize from. "
+                    "requested_capacity_kva={} requested_voltages_kv={} num_phase={}",
+                    round(capacity.to("kva").magnitude, 6),
+                    requested_voltages,
+                    num_phase,
+                )
+                msg = f"Equipment of type {DistributionTransformerEquipment} not found in catalog system."
+                raise EquipmentNotFoundError(msg)
+
+            base = sorted(
+                templates,
+                key=lambda x: min(w.rated_power.to("kva").magnitude for w in x.windings),
+            )[-1]
+            required_kva = capacity.to("kva").magnitude
+            target_kva = round(required_kva * 1.05, 6)
+            sorted_req_kv = sorted((v.to("kilovolt").magnitude for v in voltages), reverse=True)
+            primary_kv, secondary_kv = sorted_req_kv[0], sorted_req_kv[-1]
+            highest_winding = max(
+                base.windings, key=lambda w: w.rated_voltage.to("kilovolt").magnitude
+            )
+
+            new_uuid = uuid4()
+            new_windings = []
+            for idx, winding in enumerate(base.windings):
+                target_v = primary_kv if winding is highest_winding else secondary_kv
+                new_windings.append(
+                    winding.model_copy(
+                        update={
+                            "uuid": uuid4(),
+                            "name": winding.name or f"wdg_{idx + 1}",
+                            "rated_power": ApparentPower(target_kva, "kva"),
+                            "rated_voltage": Voltage(target_v, "kilovolt"),
+                        }
+                    )
+                )
+            synthesized = base.model_copy(
+                update={
+                    "uuid": new_uuid,
+                    "name": f"{base.name}_synth_{str(new_uuid)[:8]}",
+                    "windings": new_windings,
+                }
+            )
+            logger.warning(
+                "Synthesized transformer equipment {} from template {} with overridden "
+                "primary_kv={} secondary_kv={} (requested_voltages_kv={}, num_phase={}, "
+                "capacity_kva={}).",
+                synthesized.name,
+                base.name,
+                round(primary_kv, 6),
+                round(secondary_kv, 6),
                 requested_voltages,
                 num_phase,
-                comparable_candidates,
+                round(required_kva, 6),
             )
-            msg = f"Equipment of type {DistributionTransformerEquipment} not found in catalog system."
-            raise EquipmentNotFoundError(msg)
+            return synthesized
 
         return sorted(trs, key=lambda x: x.windings[0].rated_power)[0]
 
