@@ -39,7 +39,7 @@ can be passed to {class}`~shift.PRSG` via the `secondary_strategy` parameter.
 - **Topology**: Pure radial star (1 hop from transformer to each load)
 - **Trade-off**: Simplest and most common real-world residential lateral topology; no intermediate nodes
 
-**References**: {cite:t}`shahraeini2023algorithm`, {cite:t}`bidel2021synthetic`
+**Reference**: {cite:t}`ali2023modeling`
 
 ---
 
@@ -160,6 +160,5 @@ graph = builder.get_distribution_graph()
 
 ## References
 
-```{bibliography}
-:filter: key % "ali2023" or key % "shahraeini2023" or key % "bidel2021" or key % "caetano2026"
-```
+- {cite:t}`ali2023modeling`
+- {cite:t}`caetano2026bayesian`

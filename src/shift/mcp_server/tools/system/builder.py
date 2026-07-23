@@ -85,7 +85,15 @@ def register(mcp: FastMCP) -> None:
             )
 
         except Exception as exc:
-            return json.dumps({"success": False, "error": str(exc)})
+            import traceback
+
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "traceback": traceback.format_exc(),
+                }
+            )
 
     @mcp.tool()
     def get_system_summary(

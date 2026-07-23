@@ -145,7 +145,14 @@ def create_server() -> FastMCP:
 
     # -- Register tool modules -------------------------------------------------
     from shift.mcp_server.tools.data_acquisition import parcels, roads, clustering
-    from shift.mcp_server.tools.graph import management, nodes, edges, query, builder
+    from shift.mcp_server.tools.graph import (
+        management,
+        nodes,
+        edges,
+        query,
+        builder,
+        route_existing,
+    )
     from shift.mcp_server.tools.mapper import phase, voltage, equipment
     from shift.mcp_server.tools.system import builder as sys_builder, export
     from shift.mcp_server.tools.utilities import geo, network, nearest
@@ -160,6 +167,7 @@ def create_server() -> FastMCP:
     edges.register(mcp)
     query.register(mcp)
     builder.register(mcp)
+    route_existing.register(mcp)
 
     phase.register(mcp)
     voltage.register(mcp)

@@ -10,7 +10,87 @@ from mcp.server.session import ServerSession
 from shift.mcp_server.state import AppContext
 
 
-def register(mcp: FastMCP) -> None:
+def _snap_voltage_mapper_to_catalog(graph, catalog, voltage_mapper, phase_mapper):
+    """Align transformer-edge voltages with equipment available in the catalog.
+
+    The equipment mapper selects transformer equipment from the catalog by
+    matching the requested per-edge voltages within a +/-15% band. When the
+    requested voltages (e.g. 12.47/0.24 kV line-to-line) have no catalog match
+    (catalogs commonly store the line-to-ground / center-tapped equivalents such
+    as 7.2/0.12 kV), building the system fails. This mirrors the SHIFT UI
+    workaround: for each transformer edge, snap the requested primary/secondary
+    to the nearest phase-compatible catalog transformer's voltages and rebuild
+    the voltage mapper accordingly.
+
+    Returns the (possibly rebuilt) voltage mapper.
+    """
+    from gdm.distribution.components import DistributionTransformer
+    from gdm.distribution.equipment import DistributionTransformerEquipment
+    from gdm.distribution.enums import Phase
+    from gdm.quantities import Voltage
+    from shift.data_model import TransformerVoltageModel
+    from shift.mapper.transformer_voltage_mapper import TransformerVoltageMapper
+
+    options: set[tuple[float, float, int, bool]] = set()
+    for equipment in catalog.get_components(DistributionTransformerEquipment):
+        winding_kv = sorted(
+            (w.rated_voltage.to("kilovolt").magnitude for w in equipment.windings),
+            reverse=True,
+        )
+        primary_kv = winding_kv[0]
+        secondary_kv = winding_kv[-1]
+        num_phases = max(int(getattr(w, "num_phases", 1) or 1) for w in equipment.windings)
+        center_tapped = bool(getattr(equipment, "is_center_tapped", False))
+        options.add((round(primary_kv, 6), round(secondary_kv, 6), num_phases, center_tapped))
+
+    if not options:
+        return voltage_mapper
+
+    node_voltages = voltage_mapper.node_voltage_mapping
+    node_phases = phase_mapper.node_phase_mapping
+
+    models: list[TransformerVoltageModel] = []
+    for from_node, to_node, edge in graph.get_edges():
+        if not issubclass(edge.edge_type, DistributionTransformer):
+            continue
+        requested = sorted(
+            [
+                node_voltages[from_node].to("kilovolt").magnitude,
+                node_voltages[to_node].to("kilovolt").magnitude,
+            ],
+            reverse=True,
+        )
+        req_primary, req_secondary = requested[0], requested[-1]
+
+        from_phases = {ph for ph in node_phases[from_node] if ph != Phase.N}
+        to_phases = {ph for ph in node_phases[to_node] if ph != Phase.N}
+        num_phase = min(len(from_phases), len(to_phases)) or 1
+
+        if num_phase >= 3:
+            candidates = [opt for opt in options if opt[2] == 3]
+        else:
+            candidates = [opt for opt in options if opt[2] < 3 or opt[3]]
+        if not candidates:
+            candidates = list(options)
+
+        best = min(
+            candidates,
+            key=lambda opt: abs(opt[0] - req_primary) + abs(opt[1] - req_secondary),
+        )
+        models.append(
+            TransformerVoltageModel(
+                name=edge.name,
+                voltages=[Voltage(best[0], "kV"), Voltage(best[1], "kV")],
+            )
+        )
+
+    if not models:
+        return voltage_mapper
+
+    return TransformerVoltageMapper(graph, models)
+
+
+def register(mcp: FastMCP) -> None:  # noqa: C901
     @mcp.tool()
     def configure_equipment_mapper(
         ctx: Context[ServerSession, AppContext],
@@ -32,8 +112,11 @@ def register(mcp: FastMCP) -> None:
         """
         try:
             from pathlib import Path
-            from shift.mapper.edge_equipment_mapper import EdgeEquipmentMapper
+            from shift.mapper.default_load_equipment_mapper import (
+                DefaultLoadEquipmentMapper,
+            )
             from gdm.distribution import DistributionSystem as DatasetSystem
+            from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
             app: AppContext = ctx.request_context.lifespan_context
             graph = app.get_graph(graph_id)
@@ -64,12 +147,28 @@ def register(mcp: FastMCP) -> None:
                     }
                 )
 
-            catalog = DatasetSystem.from_json(catalog_file)
-            equipment_mapper = EdgeEquipmentMapper(
+            catalog = DatasetSystem.from_json(
+                catalog_file,
+                upgrade_handler=UpgradeHandler().upgrade,
+            )
+            voltage_mapper = app.voltage_mappers[graph_id]
+            phase_mapper = app.phase_mappers[graph_id]
+            # Snap transformer-edge voltages to catalog-available equipment so the
+            # equipment mapper can find matching transformers (mirrors SHIFT UI).
+            voltage_mapper = _snap_voltage_mapper_to_catalog(
+                graph, catalog, voltage_mapper, phase_mapper
+            )
+            app.voltage_mappers[graph_id] = voltage_mapper
+            node_voltages = getattr(voltage_mapper, "node_voltage_mapping", {}) or {}
+            source_voltage_kv = 12.47
+            if node_voltages:
+                source_voltage_kv = max(v.to("kilovolt").magnitude for v in node_voltages.values())
+            equipment_mapper = DefaultLoadEquipmentMapper(
                 graph,
                 catalog,
-                app.voltage_mappers[graph_id],
-                app.phase_mappers[graph_id],
+                voltage_mapper,
+                phase_mapper,
+                source_voltage_kv=source_voltage_kv,
             )
             app.equipment_mappers[graph_id] = equipment_mapper
 
@@ -83,7 +182,11 @@ def register(mcp: FastMCP) -> None:
             )
 
         except Exception as exc:
-            return json.dumps({"success": False, "error": str(exc)})
+            import traceback
+
+            return json.dumps(
+                {"success": False, "error": str(exc), "traceback": traceback.format_exc()}
+            )
 
     @mcp.tool()
     def get_equipment_mapping(

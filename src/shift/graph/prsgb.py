@@ -3,6 +3,7 @@ import copy
 
 import networkx as nx
 from infrasys.quantities import Distance
+from loguru import logger
 
 from shift.data_model import GroupModel, GeoLocation
 from shift.graph.openstreet_graph_builder import OpenStreetGraphBuilder
@@ -14,6 +15,20 @@ from shift.utils.split_network_edges import (
     get_distance_between_points,
     split_network_edges,
 )
+
+
+def _project_point_to_segment(px, py, ax, ay, bx, by):
+    """Project point (px,py) onto line segment (ax,ay)-(bx,by).
+
+    Returns (proj_x, proj_y, parametric_t) where t is clamped to [0,1].
+    """
+    dx, dy = bx - ax, by - ay
+    len_sq = dx * dx + dy * dy
+    if len_sq < 1e-20:
+        return ax, ay, 0.0
+    t = ((px - ax) * dx + (py - ay) * dy) / len_sq
+    t = max(0.0, min(1.0, t))
+    return ax + t * dx, ay + t * dy, t
 
 
 class PRSG(OpenStreetGraphBuilder):
@@ -47,9 +62,15 @@ class PRSG(OpenStreetGraphBuilder):
         buffer: Distance = Distance(20, "m"),
         routing_strategy: RoutingStrategy | None = None,
         secondary_strategy: SecondaryNetworkStrategy | None = None,
+        offline: bool = False,
+        snap_to_roads: bool = True,
+        snap_threshold_m: float = 50.0,
     ):
         super().__init__(groups, source_location, buffer, routing_strategy)
         self.secondary_strategy = secondary_strategy or MeshSteinerStrategy()
+        self.offline = offline
+        self.snap_to_roads = snap_to_roads
+        self.snap_threshold_m = snap_threshold_m
 
     def build_secondary_network(self, group: GroupModel) -> nx.Graph:
         """Build secondary network using the configured strategy.
@@ -82,6 +103,108 @@ class PRSG(OpenStreetGraphBuilder):
                 copied_graph.add_edge(node_name, node)
         return copied_graph
 
+    def _build_geometric_primary(self) -> nx.Graph:
+        """Fallback primary network using direct geometry when roads are unavailable."""
+        graph = nx.Graph()
+        # Add source node
+        src_name = str(uuid.uuid4())
+        graph.add_node(src_name, x=self.source_location.longitude, y=self.source_location.latitude)
+        # Add cluster center nodes and connect to source via MST
+        center_names = []
+        for group in self.groups:
+            name = str(uuid.uuid4())
+            graph.add_node(name, x=group.center.longitude, y=group.center.latitude)
+            center_names.append(name)
+        # Connect all nodes with edges weighted by distance
+        all_names = [src_name] + center_names
+        for i, a in enumerate(all_names):
+            for b in all_names[i + 1 :]:
+                dist = (
+                    get_distance_between_points(
+                        GeoLocation(graph.nodes[a]["x"], graph.nodes[a]["y"]),
+                        GeoLocation(graph.nodes[b]["x"], graph.nodes[b]["y"]),
+                    )
+                    .to("m")
+                    .magnitude
+                )
+                graph.add_edge(a, b, weight=dist)
+        return nx.minimum_spanning_tree(graph, weight="weight")
+
+    def _snap_groups_to_road(self, road_network) -> list[GroupModel]:  # noqa: C901
+        """Snap group centers to the closest point on a road edge.
+
+        Projects each center onto every road edge (line segment) and picks
+        the projection that minimizes total distance to the group's parcels.
+        The snapped point is inserted as a new node on the road network.
+        """
+        snapped_groups = []
+        snap_count = 0
+
+        # Pre-build edge segment list
+        edge_segments = []
+        for u, v in list(road_network.edges()):
+            ux, uy = road_network.nodes[u]["x"], road_network.nodes[u]["y"]
+            vx, vy = road_network.nodes[v]["x"], road_network.nodes[v]["y"]
+            edge_segments.append((u, v, ux, uy, vx, vy))
+
+        for group in self.groups:
+            cx, cy = group.center.longitude, group.center.latitude
+
+            # Find closest point on any edge
+            best_proj = None
+            best_dist = float("inf")
+            best_edge = None
+
+            for u, v, ux, uy, vx, vy in edge_segments:
+                px, py, dist = _project_point_to_segment(cx, cy, ux, uy, vx, vy)
+                actual_dist = (
+                    get_distance_between_points(group.center, GeoLocation(px, py))
+                    .to("m")
+                    .magnitude
+                )
+                if actual_dist < best_dist:
+                    best_dist = actual_dist
+                    best_proj = GeoLocation(px, py)
+                    best_edge = (u, v)
+
+            if best_dist > self.snap_threshold_m or best_proj is None:
+                snapped_groups.append(group)
+                continue
+
+            # If multiple edges within threshold, pick the one minimizing parcel distance
+            if group.points:
+                candidates = []
+                for u, v, ux, uy, vx, vy in edge_segments:
+                    px, py, _ = _project_point_to_segment(cx, cy, ux, uy, vx, vy)
+                    proj_geo = GeoLocation(px, py)
+                    d = get_distance_between_points(group.center, proj_geo).to("m").magnitude
+                    if d <= self.snap_threshold_m:
+                        total_parcel_dist = sum(
+                            get_distance_between_points(proj_geo, pt).to("m").magnitude
+                            for pt in group.points
+                        )
+                        candidates.append((proj_geo, total_parcel_dist, u, v))
+
+                if candidates:
+                    best = min(candidates, key=lambda c: c[1])
+                    best_proj = best[0]
+                    best_edge = (best[2], best[3])
+
+            # Insert the snapped point as a new node on the road network
+            new_node = str(uuid.uuid4())
+            road_network.add_node(new_node, x=best_proj.longitude, y=best_proj.latitude)
+            road_network.add_edge(best_edge[0], new_node)
+            road_network.add_edge(new_node, best_edge[1])
+
+            snapped_groups.append(GroupModel(center=best_proj, points=group.points))
+            snap_count += 1
+
+        if snap_count:
+            logger.info(
+                f"Snapped {snap_count}/{len(self.groups)} transformers to road edges (threshold={self.snap_threshold_m}m)"
+            )
+        return snapped_groups
+
     def build_primary_network(self) -> nx.Graph:
         """Internal method for building primary network.
 
@@ -91,10 +214,22 @@ class PRSG(OpenStreetGraphBuilder):
         """
         points = [point for group in self.groups for point in group.points]
         use_full_road_graph = isinstance(self.routing_strategy, FullRoadGraphStrategy)
-        road_network_ = get_road_network(
-            get_polygon_from_points(points, self.buffer),
-            reduce_to_mst=not use_full_road_graph,
-        )
+        if self.offline:
+            logger.info("Offline mode — using geometric primary network")
+            return self._build_geometric_primary()
+        try:
+            road_network_ = get_road_network(
+                get_polygon_from_points(points, self.buffer),
+                reduce_to_mst=not use_full_road_graph,
+            )
+        except Exception:
+            logger.warning("Road network unavailable — using geometric primary fallback")
+            return self._build_geometric_primary()
+
+        # Snap transformer centers to road if enabled
+        if self.snap_to_roads:
+            self.groups = self._snap_groups_to_road(road_network_)
+
         road_network_ = self._extend_road_network(road_network_, self.groups)
         road_network = split_network_edges(road_network_, split_length=Distance(150, "m"))
         nearest_nodes = self._get_nearest_nodes(

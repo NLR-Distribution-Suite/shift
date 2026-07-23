@@ -34,6 +34,35 @@ const targetParcelsPerFeederInput = document.getElementById("targetParcelsPerFee
 const parcelsPerTransformerInput = document.getElementById("parcelsPerTransformerInput");
 const minFeedersInput = document.getElementById("minFeedersInput");
 const maxFeedersInput = document.getElementById("maxFeedersInput");
+const transformerTypeSelect = document.getElementById("transformerTypeSelect");
+const transformerCapacityInput = document.getElementById("transformerCapacityInput");
+const primaryVoltageInput = document.getElementById("primaryVoltageInput");
+const secondaryVoltageInput = document.getElementById("secondaryVoltageInput");
+const catalogPathInput = document.getElementById("catalogPathInput");
+const transformerOptionSelect = document.getElementById("transformerOptionSelect");
+const fixSolverSelect = document.getElementById("fixSolverSelect");
+const fixMaxIterationsInput = document.getElementById("fixMaxIterationsInput");
+const fixPassesInput = document.getElementById("fixPassesInput");
+const fixVmMinInput = document.getElementById("fixVmMinInput");
+const fixVmMaxInput = document.getElementById("fixVmMaxInput");
+const fixImpedancePresetSelect = document.getElementById("fixImpedancePresetSelect");
+const fixImpedanceReductionInput = document.getElementById("fixImpedanceReductionInput");
+const autoFixAfterBuild = document.getElementById("autoFixAfterBuild");
+const qTransformerTypeSelect = document.getElementById("qTransformerType");
+const qTransformerKvaInput = document.getElementById("qTransformerKva");
+const qPrimaryKvInput = document.getElementById("qPrimaryKv");
+const qSecondaryKvInput = document.getElementById("qSecondaryKv");
+const qCatalogPathInput = document.getElementById("qCatalogPath");
+const qTransformerOptionSelect = document.getElementById("qTransformerOptionSelect");
+const qSystemNameInput = document.getElementById("qSystemName");
+const qAutoFixAfterBuild = document.getElementById("qAutoFixAfterBuild");
+const qFixSolverSelect = document.getElementById("qFixSolverSelect");
+const qFixMaxIterationsInput = document.getElementById("qFixMaxIterationsInput");
+const qFixPassesInput = document.getElementById("qFixPassesInput");
+const qFixVmMinInput = document.getElementById("qFixVmMinInput");
+const qFixVmMaxInput = document.getElementById("qFixVmMaxInput");
+const qFixImpedancePresetSelect = document.getElementById("qFixImpedancePresetSelect");
+const qFixImpedanceReductionInput = document.getElementById("qFixImpedanceReductionInput");
 
 const clusterBalanceModeLabel = clusterBalanceModeSelect.closest("label");
 const clusterCountLabel = clusterCountInput.closest("label");
@@ -56,6 +85,8 @@ let sourcePoint = { longitude: -104.99, latitude: 39.75 };
 let polygonPoints = [];
 let polygonDrawingActive = false;
 let sourcePickingActive = false;
+let lastBuiltSystemName = null;
+let latestFixedDownloadUrl = null;
 
 const map = L.map("map").setView([39.75, -104.99], 14);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -119,6 +150,145 @@ function log(data) {
   outputEl.textContent = `${new Date().toLocaleTimeString()}\n${JSON.stringify(data, null, 2)}\n\n${outputEl.textContent}`;
 }
 
+function triggerDownload(downloadUrl) {
+  if (!downloadUrl) {
+    return;
+  }
+  const dlWin = window.open(downloadUrl, "_blank");
+  if (!dlWin) {
+    log({ warning: "Popup blocked while downloading the model zip." });
+  }
+}
+
+function setLatestFixedDownloadUrl(downloadUrl) {
+  latestFixedDownloadUrl = downloadUrl || null;
+  const advancedBtn = document.getElementById("downloadFixedBundleBtn");
+  const quickBtn = document.getElementById("qDownloadFixedBundleBtn");
+  const show = Boolean(latestFixedDownloadUrl);
+
+  if (advancedBtn) {
+    advancedBtn.style.display = show ? "" : "none";
+  }
+  if (quickBtn) {
+    quickBtn.style.display = show ? "" : "none";
+  }
+}
+
+function bindImpedancePreset(presetSelect, factorInput) {
+  const presetValues = ["0.95", "0.90", "0.85"];
+
+  presetSelect.addEventListener("change", () => {
+    const selected = presetSelect.value;
+    if (selected === "custom") {
+      return;
+    }
+    factorInput.value = selected;
+  });
+
+  factorInput.addEventListener("input", () => {
+    const value = Number(factorInput.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const matched = presetValues.find((v) => Math.abs(Number(v) - value) < 1e-9);
+    presetSelect.value = matched || "custom";
+  });
+}
+
+async function runIterativeFixLoop({
+  systemName,
+  solver,
+  maxIterations,
+  maxPasses,
+  vmMinPu,
+  vmMaxPu,
+  impedanceReductionFactor,
+}) {
+  if (!Number.isFinite(vmMinPu) || !Number.isFinite(vmMaxPu) || vmMinPu >= vmMaxPu) {
+    throw new Error("Voltage limits are invalid. Ensure vm_min_pu < vm_max_pu.");
+  }
+  if (
+    !Number.isFinite(impedanceReductionFactor) ||
+    impedanceReductionFactor <= 0 ||
+    impedanceReductionFactor >= 1
+  ) {
+    throw new Error("Impedance reduction factor must be > 0 and < 1.");
+  }
+
+  let selectedSolver = (solver || "ldf").trim().toLowerCase();
+  let latestResult = null;
+
+  log({
+    fixing_violations: systemName,
+    solver: selectedSolver,
+    max_iterations: maxIterations,
+    max_passes: maxPasses,
+    vm_min_pu: vmMinPu,
+    vm_max_pu: vmMaxPu,
+    impedance_reduction_factor: impedanceReductionFactor,
+  });
+
+  for (let pass = 1; pass <= maxPasses; pass += 1) {
+    let data;
+    try {
+      data = await api("/api/system/fix-violations", {
+        system_name: systemName,
+        output_system_name: systemName,
+        max_iterations: maxIterations,
+        solver: selectedSolver,
+        vm_min_pu: vmMinPu,
+        vm_max_pu: vmMaxPu,
+        impedance_reduction_factor: impedanceReductionFactor,
+      });
+    } catch (err) {
+      if (selectedSolver === "ldf") {
+        log({ warning: "ldf solver failed on this pass, retrying with ac", pass });
+        selectedSolver = "ac";
+        data = await api("/api/system/fix-violations", {
+          system_name: systemName,
+          output_system_name: systemName,
+          max_iterations: maxIterations,
+          solver: selectedSolver,
+          vm_min_pu: vmMinPu,
+          vm_max_pu: vmMaxPu,
+          impedance_reduction_factor: impedanceReductionFactor,
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    latestResult = data;
+    log({
+      fix_pass: pass,
+      solver: data.solver || selectedSolver,
+      success: data.success,
+      message: data.message,
+      initial_voltage_violations: data.initial_voltage_violations,
+      initial_loading_violations: data.initial_loading_violations,
+      final_voltage_violations: data.final_voltage_violations,
+      final_loading_violations: data.final_loading_violations,
+      total_actions: data.total_actions,
+    });
+
+    const resolved =
+      Number(data.final_voltage_violations || 0) === 0 &&
+      Number(data.final_loading_violations || 0) === 0;
+    const noActions = Number(data.total_actions || 0) === 0;
+
+    if (resolved) {
+      log({ fix_status: "resolved", pass });
+      break;
+    }
+    if (noActions) {
+      log({ fix_status: "stalled_no_actions", pass });
+      break;
+    }
+  }
+
+  return latestResult;
+}
+
 async function api(path, payload) {
   const res = await fetch(path, {
     method: "POST",
@@ -130,6 +300,75 @@ async function api(path, payload) {
     throw new Error(data.detail || JSON.stringify(data));
   }
   return data;
+}
+
+function setSelectOptions(selectEl, options, placeholder) {
+  selectEl.innerHTML = "";
+  const baseOpt = document.createElement("option");
+  baseOpt.value = "";
+  baseOpt.textContent = placeholder;
+  selectEl.appendChild(baseOpt);
+
+  options.forEach((option, index) => {
+    const opt = document.createElement("option");
+    opt.value = String(index);
+    opt.textContent = option.count > 1 ? `${option.label} (${option.count} available)` : option.label;
+    selectEl.appendChild(opt);
+  });
+}
+
+function applyTransformerOption(option, controls) {
+  if (!option) {
+    return;
+  }
+  controls.type.value = option.transformer_type;
+  controls.capacity.value = option.transformer_capacity_kva;
+  controls.primary.value = option.primary_voltage_kv;
+  controls.secondary.value = option.secondary_voltage_kv;
+}
+
+async function refreshCatalogTransformerOptions({
+  pathInput,
+  selectEl,
+  controls,
+  statusLabel,
+}) {
+  const catalogPath = pathInput.value.trim();
+  if (!catalogPath) {
+    setSelectOptions(selectEl, [], "Catalog path required");
+    return;
+  }
+
+  try {
+    const data = await api("/api/catalog/transformers", { catalog_path: catalogPath });
+    const options = data.transformers || [];
+    if (!options.length) {
+      setSelectOptions(selectEl, [], "No matching transformer settings in catalog");
+      return;
+    }
+    selectEl.dataset.options = JSON.stringify(options);
+    setSelectOptions(selectEl, options, "Select catalog transformer setting");
+    selectEl.value = "0";
+    applyTransformerOption(options[0], controls);
+    if (statusLabel) {
+      statusLabel.textContent = `${options.length} catalog transformer settings loaded`;
+    }
+  } catch (err) {
+    selectEl.dataset.options = "[]";
+    setSelectOptions(selectEl, [], "Unable to load catalog settings");
+    log({ error: String(err) });
+  }
+}
+
+function bindCatalogTransformerSelect(selectEl, controls) {
+  selectEl.addEventListener("change", () => {
+    const options = JSON.parse(selectEl.dataset.options || "[]");
+    const index = Number(selectEl.value);
+    if (!Number.isInteger(index) || !options[index]) {
+      return;
+    }
+    applyTransformerOption(options[index], controls);
+  });
 }
 
 async function loadOptions() {
@@ -184,7 +423,54 @@ async function loadOptions() {
     secondarySelect.appendChild(opt);
   }
 
+  if (fixSolverSelect) {
+    const flowSolvers = Array.isArray(data.flow_solvers) && data.flow_solvers.length
+      ? data.flow_solvers
+      : ["ldf", "ac"];
+    fixSolverSelect.innerHTML = "";
+    for (const val of flowSolvers) {
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = val;
+      fixSolverSelect.appendChild(opt);
+    }
+    fixSolverSelect.value = flowSolvers.includes("ldf") ? "ldf" : flowSolvers[0];
+    if (qFixSolverSelect) {
+      qFixSolverSelect.innerHTML = "";
+      for (const val of flowSolvers) {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = val;
+        qFixSolverSelect.appendChild(opt);
+      }
+      qFixSolverSelect.value = flowSolvers.includes("ldf") ? "ldf" : flowSolvers[0];
+    }
+  }
+
   updateSecondaryControlState();
+
+  await refreshCatalogTransformerOptions({
+    pathInput: catalogPathInput,
+    selectEl: transformerOptionSelect,
+    controls: {
+      type: transformerTypeSelect,
+      capacity: transformerCapacityInput,
+      primary: primaryVoltageInput,
+      secondary: secondaryVoltageInput,
+    },
+  });
+
+  await refreshCatalogTransformerOptions({
+    pathInput: qCatalogPathInput,
+    selectEl: qTransformerOptionSelect,
+    controls: {
+      type: qTransformerTypeSelect,
+      capacity: qTransformerKvaInput,
+      primary: qPrimaryKvInput,
+      secondary: qSecondaryKvInput,
+    },
+    statusLabel: document.getElementById("qStatus"),
+  });
 }
 
 function drawParcels(parcels) {
@@ -699,11 +985,11 @@ document.getElementById("buildSystemBtn").addEventListener("click", async () => 
     const payload = {
       graph_id: graphId,
       system_name: document.getElementById("systemNameInput").value || "my_feeder",
-      transformer_type: document.getElementById("transformerTypeSelect").value,
-      transformer_capacity_kva: Number(document.getElementById("transformerCapacityInput").value),
-      primary_voltage_kv: Number(document.getElementById("primaryVoltageInput").value),
-      secondary_voltage_kv: Number(document.getElementById("secondaryVoltageInput").value),
-      catalog_path: document.getElementById("catalogPathInput").value || null,
+      transformer_type: transformerTypeSelect.value,
+      transformer_capacity_kva: Number(transformerCapacityInput.value),
+      primary_voltage_kv: Number(primaryVoltageInput.value),
+      secondary_voltage_kv: Number(secondaryVoltageInput.value),
+      catalog_path: catalogPathInput.value || null,
     };
 
     log({ building_system: payload.system_name, graph_id: graphId });
@@ -711,15 +997,33 @@ document.getElementById("buildSystemBtn").addEventListener("click", async () => 
     const data = await api("/api/system/build-full", payload);
     log(data);
 
-    if (data.success && data.download_url) {
-      const dlBtn = document.getElementById("downloadSystemBtn");
-      dlBtn.style.display = "";
-      dlBtn.onclick = () => {
-        window.open(data.download_url, "_blank");
-      };
+    if (data.success && (data.download_bundle_url || data.download_url)) {
+      lastBuiltSystemName = payload.system_name;
       // Show fix violations button after successful build
       const fixBtn = document.getElementById("fixViolationsBtn");
       fixBtn.style.display = "";
+
+      let finalDownloadUrl = data.download_bundle_url || data.download_url;
+      const shouldAutoFix = Boolean(autoFixAfterBuild?.checked);
+
+      if (shouldAutoFix) {
+        const latestResult = await runIterativeFixLoop({
+          systemName: payload.system_name,
+          solver: fixSolverSelect.value,
+          maxIterations: Math.max(1, Number(fixMaxIterationsInput.value) || 10),
+          maxPasses: Math.max(1, Number(fixPassesInput.value) || 3),
+          vmMinPu: Number(fixVmMinInput.value),
+          vmMaxPu: Number(fixVmMaxInput.value),
+          impedanceReductionFactor: Number(fixImpedanceReductionInput.value),
+        });
+        if (latestResult) {
+          finalDownloadUrl = latestResult.download_bundle_url || latestResult.download_url || finalDownloadUrl;
+          setLatestFixedDownloadUrl(latestResult.download_bundle_url || latestResult.download_url || null);
+        }
+      }
+
+      // Download the final artifact after build and optional fix loop.
+      triggerDownload(finalDownloadUrl);
     }
   } catch (err) {
     log({ error: String(err) });
@@ -729,24 +1033,30 @@ document.getElementById("buildSystemBtn").addEventListener("click", async () => 
 // --- Fix Violations (gdm-flow) ---
 document.getElementById("fixViolationsBtn").addEventListener("click", async () => {
   try {
-    const systemName = document.getElementById("systemNameInput").value || "my_feeder";
-    log({ fixing_violations: systemName, solver: "ldf" });
+    const systemName =
+      lastBuiltSystemName ||
+      document.getElementById("systemNameInput").value ||
+      qSystemNameInput.value ||
+      "my_feeder";
 
-    const data = await api("/api/system/fix-violations", {
-      system_name: systemName,
-      max_iterations: 10,
-      solver: "ldf",
-      vm_min_pu: 0.95,
-      vm_max_pu: 1.05,
+    const maxIterations = Math.max(1, Number(fixMaxIterationsInput.value) || 10);
+    const maxPasses = Math.max(1, Number(fixPassesInput.value) || 3);
+    const vmMinPu = Number(fixVmMinInput.value);
+    const vmMaxPu = Number(fixVmMaxInput.value);
+    const latestResult = await runIterativeFixLoop({
+      systemName,
+      solver: fixSolverSelect.value,
+      maxIterations,
+      maxPasses,
+      vmMinPu,
+      vmMaxPu,
+      impedanceReductionFactor: Number(fixImpedanceReductionInput.value),
     });
-    log(data);
 
-    if (data.download_url) {
-      const dlFixedBtn = document.getElementById("downloadFixedBtn");
-      dlFixedBtn.style.display = "";
-      dlFixedBtn.onclick = () => {
-        window.open(data.download_url, "_blank");
-      };
+    if (latestResult) {
+      const downloadUrl = latestResult.download_bundle_url || latestResult.download_url;
+      setLatestFixedDownloadUrl(downloadUrl || null);
+      triggerDownload(downloadUrl);
     }
   } catch (err) {
     log({ error: String(err) });
@@ -820,8 +1130,8 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
   try {
     if (polygonPoints.length < 3) throw new Error("Draw a polygon first (at least 3 points).");
 
-    const systemName = document.getElementById("qSystemName").value || "my_feeder";
-    const catalogPath = document.getElementById("qCatalogPath").value || null;
+    const systemName = qSystemNameInput.value || "my_feeder";
+    const catalogPath = qCatalogPathInput.value || null;
 
     document.getElementById("qStatus").textContent = "Fetching parcels...";
     log({ quick_build: "started", system_name: systemName });
@@ -879,10 +1189,10 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
     const sysResult = await api("/api/system/build-full", {
       graph_id: graphResult.summary.graph_id,
       system_name: systemName,
-      transformer_type: document.getElementById("qTransformerType").value,
-      transformer_capacity_kva: Number(document.getElementById("qTransformerKva").value),
-      primary_voltage_kv: Number(document.getElementById("qPrimaryKv").value),
-      secondary_voltage_kv: Number(document.getElementById("qSecondaryKv").value),
+      transformer_type: qTransformerTypeSelect.value,
+      transformer_capacity_kva: Number(qTransformerKvaInput.value),
+      primary_voltage_kv: Number(qPrimaryKvInput.value),
+      secondary_voltage_kv: Number(qSecondaryKvInput.value),
       catalog_path: catalogPath,
     });
 
@@ -890,10 +1200,36 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
     document.getElementById("qStatus").textContent =
       `✓ ${parcelResult.count} parcels → ${clusterResult.count} transformers → ${graphResult.summary.node_count} nodes → GDM exported`;
 
-    if (sysResult.download_url) {
-      const dlBtn = document.getElementById("quickDownloadBtn");
-      dlBtn.style.display = "";
-      dlBtn.onclick = () => window.open(sysResult.download_url, "_blank");
+    lastBuiltSystemName = systemName;
+    const fixBtn = document.getElementById("fixViolationsBtn");
+    fixBtn.style.display = "";
+    const qFixBtn = document.getElementById("qFixViolationsBtn");
+    qFixBtn.style.display = "";
+
+    let finalDownloadUrl = sysResult.download_bundle_url || sysResult.download_url;
+    const shouldAutoFix = Boolean(qAutoFixAfterBuild?.checked);
+
+    if (shouldAutoFix) {
+      document.getElementById("qStatus").textContent = "Running iterative power-flow fix...";
+      const latestResult = await runIterativeFixLoop({
+        systemName,
+        solver: qFixSolverSelect.value,
+        maxIterations: Math.max(1, Number(qFixMaxIterationsInput.value) || 10),
+        maxPasses: Math.max(1, Number(qFixPassesInput.value) || 3),
+        vmMinPu: Number(qFixVmMinInput.value),
+        vmMaxPu: Number(qFixVmMaxInput.value),
+        impedanceReductionFactor: Number(qFixImpedanceReductionInput.value),
+      });
+      if (latestResult) {
+        finalDownloadUrl = latestResult.download_bundle_url || latestResult.download_url || finalDownloadUrl;
+        setLatestFixedDownloadUrl(latestResult.download_bundle_url || latestResult.download_url || null);
+      }
+      document.getElementById("qStatus").textContent = "Fix loop complete. Downloading model bundle...";
+    }
+
+    if (finalDownloadUrl) {
+      // Download final model artifact after build (and optional fix passes).
+      triggerDownload(finalDownloadUrl);
     }
   } catch (err) {
     document.getElementById("qStatus").textContent = "Error — see output";
@@ -901,7 +1237,93 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
   }
 });
 
+document.getElementById("qFixViolationsBtn").addEventListener("click", async () => {
+  try {
+    const systemName =
+      lastBuiltSystemName ||
+      qSystemNameInput.value ||
+      document.getElementById("systemNameInput").value ||
+      "my_feeder";
+    const latestResult = await runIterativeFixLoop({
+      systemName,
+      solver: qFixSolverSelect.value,
+      maxIterations: Math.max(1, Number(qFixMaxIterationsInput.value) || 10),
+      maxPasses: Math.max(1, Number(qFixPassesInput.value) || 3),
+      vmMinPu: Number(qFixVmMinInput.value),
+      vmMaxPu: Number(qFixVmMaxInput.value),
+      impedanceReductionFactor: Number(qFixImpedanceReductionInput.value),
+    });
+    if (latestResult) {
+      const downloadUrl = latestResult.download_bundle_url || latestResult.download_url;
+      setLatestFixedDownloadUrl(downloadUrl || null);
+      triggerDownload(downloadUrl);
+    }
+  } catch (err) {
+    log({ error: String(err) });
+  }
+});
+
+document.getElementById("downloadFixedBundleBtn").addEventListener("click", () => {
+  if (!latestFixedDownloadUrl) {
+    log({ warning: "No fixed model bundle available yet. Run iterative fix first." });
+    return;
+  }
+  triggerDownload(latestFixedDownloadUrl);
+});
+
+document.getElementById("qDownloadFixedBundleBtn").addEventListener("click", () => {
+  if (!latestFixedDownloadUrl) {
+    log({ warning: "No fixed model bundle available yet. Run iterative fix first." });
+    return;
+  }
+  triggerDownload(latestFixedDownloadUrl);
+});
+
 loadOptions().then(checkHealth).catch((err) => log({ error: String(err) }));
+
+bindImpedancePreset(fixImpedancePresetSelect, fixImpedanceReductionInput);
+bindImpedancePreset(qFixImpedancePresetSelect, qFixImpedanceReductionInput);
+
+bindCatalogTransformerSelect(transformerOptionSelect, {
+  type: transformerTypeSelect,
+  capacity: transformerCapacityInput,
+  primary: primaryVoltageInput,
+  secondary: secondaryVoltageInput,
+});
+
+bindCatalogTransformerSelect(qTransformerOptionSelect, {
+  type: qTransformerTypeSelect,
+  capacity: qTransformerKvaInput,
+  primary: qPrimaryKvInput,
+  secondary: qSecondaryKvInput,
+});
+
+catalogPathInput.addEventListener("change", () =>
+  refreshCatalogTransformerOptions({
+    pathInput: catalogPathInput,
+    selectEl: transformerOptionSelect,
+    controls: {
+      type: transformerTypeSelect,
+      capacity: transformerCapacityInput,
+      primary: primaryVoltageInput,
+      secondary: secondaryVoltageInput,
+    },
+  }),
+);
+
+qCatalogPathInput.addEventListener("change", () =>
+  refreshCatalogTransformerOptions({
+    pathInput: qCatalogPathInput,
+    selectEl: qTransformerOptionSelect,
+    controls: {
+      type: qTransformerTypeSelect,
+      capacity: qTransformerKvaInput,
+      primary: qPrimaryKvInput,
+      secondary: qSecondaryKvInput,
+    },
+    statusLabel: document.getElementById("qStatus"),
+  }),
+);
 
 // --- Stream backend logs to output panel ---
 const logStream = new EventSource("/api/logs/stream");

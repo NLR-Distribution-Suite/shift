@@ -12,6 +12,7 @@ A Python framework for building synthetic power distribution feeder models from 
 - **Phase Balancing** — Automatically balance phases across distribution transformers
 - **Voltage Mapping** — Assign voltage levels throughout the distribution network based on transformer topology
 - **Visualization** — Built-in Plotly-based plotting for parcels, networks, and phase/voltage overlays
+- **Interactive UI Studio** — Browser-based workflow for parcel fetch, clustering, strategy selection, graph build, and side-by-side comparisons
 - **Simulator Export** — Write models to OpenDSS, CYME, Synergi, and other simulators via Grid Data Models
 
 ## Installation
@@ -42,9 +43,29 @@ pip install -e ".[doc]"
 # MCP server (AI agent integration)
 pip install -e ".[mcp]"
 
+# UI API + browser studio
+pip install -e ".[ui]"
+
 # Everything
-pip install -e ".[dev,doc,mcp]"
+pip install -e ".[dev,doc,mcp,ui]"
 ```
+
+## UI Studio
+
+NREL-shift includes a FastAPI-backed UI that exposes core modeling workflows through a browser interface.
+
+```bash
+pip install -e ".[ui]"
+shift-ui-server
+```
+
+Open `http://127.0.0.1:8000` to access the UI. The first vertical slice includes:
+
+- map-assisted source selection,
+- parcel fetch and clustering,
+- routing/secondary strategy selection,
+- graph build and strategy comparison,
+- mapper/system build endpoints ready for UI wiring.
 
 ## Quick Start
 
@@ -167,6 +188,7 @@ These guides walk through individual stages of the workflow:
 | [Mapping Voltages](./docs/usage/mapping_voltages.md) | Assigning voltage levels via transformer topology |
 | [Mapping Equipment](./docs/usage/mapping_equipment.md) | Mapping loads, sources, and catalog equipment |
 | [Building a System](./docs/usage/building_system.md) | Assembling the final distribution system model |
+| [UI Studio](./docs/usage/ui_studio.md) | Running and using the browser-based UI/API workflow |
 
 ### MCP Server (AI Agent Integration)
 

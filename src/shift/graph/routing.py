@@ -58,6 +58,24 @@ def _geodesic_weight(graph: nx.Graph, u: str, v: str) -> float:
     return get_distance_between_points(from_point, to_point).to("m").magnitude
 
 
+def _segments_intersect(ax, ay, bx, by, cx, cy, dx, dy) -> bool:
+    """Check if line segment AB intersects segment CD (proper crossing only)."""
+
+    def _cross(ox, oy, px, py, qx, qy):
+        return (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+
+    d1 = _cross(cx, cy, dx, dy, ax, ay)
+    d2 = _cross(cx, cy, dx, dy, bx, by)
+    d3 = _cross(ax, ay, bx, by, cx, cy)
+    d4 = _cross(ax, ay, bx, by, dx, dy)
+
+    if ((d1 > 0 and d2 < 0) or (d1 < 0 and d2 > 0)) and (
+        (d3 > 0 and d4 < 0) or (d3 < 0 and d4 > 0)
+    ):
+        return True
+    return False
+
+
 class SteinerTreeStrategy(RoutingStrategy):
     """Steiner tree with uniform edge weights (current default behavior).
 
@@ -72,20 +90,20 @@ class SteinerTreeStrategy(RoutingStrategy):
 
 
 class WeightedSteinerTreeStrategy(RoutingStrategy):
-    """Steiner tree with distance-based edge weights.
+    """Steiner tree with distance-based edge weights and optional crossing penalty.
 
-    Uses geodesic distance (or a user-supplied weight function) as edge
-    weights for the Steiner tree approximation. This produces more
-    realistic routing that follows shorter physical paths rather than
-    arbitrary graph hops.
+    Uses geodesic distance as edge weights for the Steiner tree approximation.
+    Optionally penalizes edges that would cross other edges in the graph,
+    encouraging non-crossing topologies.
 
     Parameters
     ----------
     weight_fn : Callable[[nx.Graph, str, str], float], optional
-        Custom weight function accepting (graph, node_u, node_v) and
-        returning a positive float weight. Defaults to geodesic distance
-        in meters. Can be used to penalize road crossings, apply
-        distance-zone penalties, etc.
+        Custom weight function. Defaults to geodesic distance in meters.
+    crossing_penalty : float, optional
+        Multiplicative penalty applied for each crossing detected.
+        Default 1.0 (no penalty). Values > 1 discourage crossings.
+        Typical values: 2.0–5.0 for moderate penalty.
 
     References
     ----------
@@ -93,12 +111,42 @@ class WeightedSteinerTreeStrategy(RoutingStrategy):
     - Caetano et al. 2026: distance-zone weighting concept
     """
 
-    def __init__(self, weight_fn: Callable[[nx.Graph, str, str], float] | None = None):
+    def __init__(
+        self,
+        weight_fn: Callable[[nx.Graph, str, str], float] | None = None,
+        crossing_penalty: float = 1.0,
+    ):
         self.weight_fn = weight_fn or _geodesic_weight
+        self.crossing_penalty = crossing_penalty
 
     def route(self, graph: nx.Graph, terminal_nodes: list[str]) -> nx.Graph:
+        if isinstance(graph, (nx.MultiGraph, nx.MultiDiGraph)):
+            graph = nx.Graph(graph)
+
+        # Pre-compute all edge segments for crossing detection
+        edge_segments = []
+        if self.crossing_penalty > 1.0:
+            for u, v in graph.edges():
+                ux, uy = graph.nodes[u]["x"], graph.nodes[u]["y"]
+                vx, vy = graph.nodes[v]["x"], graph.nodes[v]["y"]
+                edge_segments.append((ux, uy, vx, vy))
+
         for u, v in graph.edges():
-            graph[u][v]["weight"] = self.weight_fn(graph, u, v)
+            base_weight = self.weight_fn(graph, u, v)
+
+            if self.crossing_penalty > 1.0 and edge_segments:
+                # Count how many other edges this edge crosses
+                ux, uy = graph.nodes[u]["x"], graph.nodes[u]["y"]
+                vx, vy = graph.nodes[v]["x"], graph.nodes[v]["y"]
+                crossings = sum(
+                    1
+                    for ax, ay, bx, by in edge_segments
+                    if _segments_intersect(ux, uy, vx, vy, ax, ay, bx, by)
+                )
+                base_weight *= self.crossing_penalty**crossings
+
+            graph[u][v]["weight"] = base_weight
+
         return ax.steiner_tree(graph, terminal_nodes, weight="weight", method="mehlhorn")
 
 
@@ -124,6 +172,8 @@ class ShortestPathTreeStrategy(RoutingStrategy):
         self.weight_fn = weight_fn or _geodesic_weight
 
     def route(self, graph: nx.Graph, terminal_nodes: list[str]) -> nx.Graph:
+        if isinstance(graph, (nx.MultiGraph, nx.MultiDiGraph)):
+            graph = nx.Graph(graph)
         for u, v in graph.edges():
             graph[u][v]["weight"] = self.weight_fn(graph, u, v)
 
@@ -166,7 +216,9 @@ class MinimumSpanningTreeStrategy(RoutingStrategy):
     def __init__(self, weight_fn: Callable[[nx.Graph, str, str], float] | None = None):
         self.weight_fn = weight_fn or _geodesic_weight
 
-    def route(self, graph: nx.Graph, terminal_nodes: list[str]) -> nx.Graph:
+    def route(self, graph: nx.Graph, terminal_nodes: list[str]) -> nx.Graph:  # noqa: C901
+        if isinstance(graph, (nx.MultiGraph, nx.MultiDiGraph)):
+            graph = nx.Graph(graph)
         for u, v in graph.edges():
             graph[u][v]["weight"] = self.weight_fn(graph, u, v)
 
@@ -243,11 +295,10 @@ class FullRoadGraphStrategy(RoutingStrategy):
 class CostOptimizedStrategy(RoutingStrategy):
     """Cost-optimized routing via MILP (placeholder).
 
-    Based on the formulation by Trpovski et al. 2018:
-    - Binary decision variable α_{i,j} for each candidate edge
-    - Objective: minimize investment cost (line length × cost/km) +
-      operational cost (losses) + substation cost
-    - Subject to: radiality constraints, AC power flow limits
+        Based on the formulation by Trpovski et al. 2018, this strategy
+        conceptually uses binary edge-decision variables to minimize
+        investment and operating costs under radiality and power-flow
+        constraints.
 
     This is a placeholder that documents the interface. Full implementation
     requires an external MILP solver (e.g., PuLP, scipy.optimize, or Pyomo).

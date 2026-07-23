@@ -230,8 +230,12 @@ class OpenStreetSecondaryStrategy(SecondaryNetworkStrategy):
         # Fetch local road network for this group's area
         all_points = [group.center] + list(group.points)
         polygon = get_polygon_from_points(all_points, self.buffer)
-        road_network = get_road_network(polygon, reduce_to_mst=False)
-        road_network = split_network_edges(road_network, split_length=Distance(50, "m"))
+        try:
+            road_network = get_road_network(polygon, reduce_to_mst=False)
+            road_network = split_network_edges(road_network, split_length=Distance(50, "m"))
+        except (ValueError, EmptyGraphError):
+            # No road data available for this area — fall back to radial.
+            return RadialStrategy().build(group)
 
         # Find nearest road nodes to each load point and center
         nearest_nodes = _get_nearest_nodes_from_graph(road_network, all_points)
@@ -252,9 +256,8 @@ class HubLineStrategy(SecondaryNetworkStrategy):
     each consumer to the transformer (hub) via the shortest road-network
     path, or directly if no road network is provided.
 
-    The hub-line algorithm computes spatial distance:
-        d(p, e) = sqrt((px - eix)^2 + (py - eiy)^2)
-    and connects the N_f nearest consumers to each hub/transformer.
+    The hub-line algorithm ranks consumers by spatial distance to the
+    transformer and connects the nearest consumers to each hub.
 
     This produces a star topology per transformer where consumers are
     assigned based on proximity.
@@ -306,3 +309,183 @@ def _get_nearest_nodes_from_graph(graph: nx.Graph, points: list[GeoLocation]) ->
     }
     nearest = get_nearest_points(list(graph_nodes_mapper.keys()), points)
     return [graph_nodes_mapper[tuple(node)] for node in nearest]
+
+
+class TrunkBranchStrategy(SecondaryNetworkStrategy):
+    """Trunk-and-branch secondary routing along roads.
+
+    Builds one or more trunk lines from the transformer along the road
+    network, then taps each parcel directly off the nearest trunk node.
+    Parcels are never connected in series — each gets its own lateral.
+
+    The trunk follows the road network (shared geometry with primary)
+    but uses unique node IDs so it's electrically separate.
+
+    Parameters
+    ----------
+    buffer : Distance, optional
+        Buffer around group bounding box for road fetching. Default 50m.
+    max_trunks : int, optional
+        Maximum number of trunk directions from transformer. Default 3.
+    """
+
+    def __init__(
+        self,
+        buffer: Distance = Distance(50, "m"),
+        max_trunks: int = 3,
+    ):
+        self.buffer = buffer
+        self.max_trunks = max_trunks
+
+    def build(self, group: GroupModel) -> nx.Graph:  # noqa: C901
+        sec_graph = nx.Graph()
+
+        if len(group.points) == 1:
+            center_name = str(uuid.uuid4())
+            sec_graph.add_node(center_name, x=group.center[0], y=group.center[1])
+            load_name = str(uuid.uuid4())
+            sec_graph.add_node(load_name, x=group.points[0][0], y=group.points[0][1])
+            sec_graph.add_edge(center_name, load_name)
+            return sec_graph
+
+        # Try to get road network for trunk routing
+        road_network = None
+        try:
+            from shift.openstreet_roads import get_road_network
+            from shift.utils.polygon_from_points import get_polygon_from_points
+            from shift.utils.split_network_edges import split_network_edges
+
+            all_points = [group.center] + list(group.points)
+            polygon = get_polygon_from_points(all_points, self.buffer)
+            road_network = get_road_network(polygon, reduce_to_mst=False)
+            road_network = split_network_edges(road_network, split_length=Distance(30, "m"))
+        except (ValueError, EmptyGraphError):
+            pass
+
+        if road_network is None or not road_network.nodes:
+            # Fall back to geometric trunk-branch (no roads)
+            return self._build_geometric_trunk_branch(group)
+
+        # --- Road-based trunk-and-branch ---
+        # 1. Find transformer node on road
+        center_road_nodes = _get_nearest_nodes_from_graph(road_network, [group.center])
+        tr_road_node = center_road_nodes[0]
+
+        # 2. Find nearest road node for each parcel
+        parcel_road_nodes = _get_nearest_nodes_from_graph(road_network, group.points)
+
+        # 3. Build shortest-path tree from transformer to all parcel road nodes
+        # Compute shortest paths from transformer to each parcel's road node
+        trunk_graph = nx.Graph()
+        for target in parcel_road_nodes:
+            if target == tr_road_node:
+                continue
+            try:
+                path = nx.shortest_path(road_network, tr_road_node, target)
+                for i in range(len(path) - 1):
+                    u, v = path[i], path[i + 1]
+                    if not trunk_graph.has_node(u):
+                        trunk_graph.add_node(
+                            u, x=road_network.nodes[u]["x"], y=road_network.nodes[u]["y"]
+                        )
+                    if not trunk_graph.has_node(v):
+                        trunk_graph.add_node(
+                            v, x=road_network.nodes[v]["x"], y=road_network.nodes[v]["y"]
+                        )
+                    if not trunk_graph.has_edge(u, v):
+                        trunk_graph.add_edge(u, v)
+            except nx.NetworkXNoPath:
+                continue
+
+        # 4. Extract a tree (remove cycles) via DFS from transformer
+        if trunk_graph.nodes and tr_road_node in trunk_graph:
+            dfs_edges = list(nx.dfs_edges(trunk_graph, source=tr_road_node))
+            tree = nx.Graph()
+            for u, v in dfs_edges:
+                tree.add_node(u, **trunk_graph.nodes[u])
+                tree.add_node(v, **trunk_graph.nodes[v])
+                tree.add_edge(u, v)
+            if tr_road_node not in tree:
+                tree.add_node(tr_road_node, **trunk_graph.nodes[tr_road_node])
+            trunk_graph = tree
+
+        # 5. Copy trunk into sec_graph with UNIQUE node IDs (same locations)
+        road_to_sec = {}  # map road node ID → new sec node ID
+        for node in trunk_graph.nodes:
+            new_id = str(uuid.uuid4())
+            sec_graph.add_node(
+                new_id, x=trunk_graph.nodes[node]["x"], y=trunk_graph.nodes[node]["y"]
+            )
+            road_to_sec[node] = new_id
+        for u, v in trunk_graph.edges:
+            sec_graph.add_edge(road_to_sec[u], road_to_sec[v])
+
+        # 6. Tap each parcel as a lateral off its nearest trunk node
+        for point, road_node in zip(group.points, parcel_road_nodes):
+            load_name = str(uuid.uuid4())
+            sec_graph.add_node(load_name, x=point[0], y=point[1])
+
+            # Connect to the corresponding trunk node
+            if road_node in road_to_sec:
+                sec_graph.add_edge(load_name, road_to_sec[road_node])
+            elif road_to_sec:
+                # Find closest trunk node
+                trunk_pts = [
+                    (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"])
+                    for n in road_to_sec.values()
+                ]
+                nearest = get_nearest_points(trunk_pts, [point])
+                closest_sec = [
+                    n
+                    for n in road_to_sec.values()
+                    if (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"]) == tuple(nearest[0])
+                ][0]
+                sec_graph.add_edge(load_name, closest_sec)
+
+        return sec_graph
+
+    def _build_geometric_trunk_branch(self, group: GroupModel) -> nx.Graph:
+        """Fallback: geometric trunk-branch when no road data available."""
+        import numpy as np
+        from sklearn.cluster import KMeans
+
+        sec_graph = nx.Graph()
+        center_name = str(uuid.uuid4())
+        sec_graph.add_node(center_name, x=group.center[0], y=group.center[1])
+
+        points = list(group.points)
+        if len(points) <= self.max_trunks:
+            # Few parcels — direct radial
+            for point in points:
+                load_name = str(uuid.uuid4())
+                sec_graph.add_node(load_name, x=point[0], y=point[1])
+                sec_graph.add_edge(center_name, load_name)
+            return sec_graph
+
+        # Cluster parcels into trunk directions
+        coords = np.array([[p[0], p[1]] for p in points])
+        n_trunks = min(self.max_trunks, len(points))
+        model = KMeans(n_clusters=n_trunks, random_state=0)
+        model.fit(coords)
+
+        for trunk_idx in range(n_trunks):
+            trunk_points = [points[i] for i in range(len(points)) if model.labels_[i] == trunk_idx]
+            if not trunk_points:
+                continue
+
+            # Trunk endpoint = centroid of this trunk's parcels
+            trunk_end = GeoLocation(
+                float(np.mean([p[0] for p in trunk_points])),
+                float(np.mean([p[1] for p in trunk_points])),
+            )
+            trunk_name = str(uuid.uuid4())
+            sec_graph.add_node(trunk_name, x=trunk_end[0], y=trunk_end[1])
+            sec_graph.add_edge(center_name, trunk_name)
+
+            # Tap each parcel off the trunk
+            for point in trunk_points:
+                load_name = str(uuid.uuid4())
+                sec_graph.add_node(load_name, x=point[0], y=point[1])
+                sec_graph.add_edge(trunk_name, load_name)
+
+        return sec_graph

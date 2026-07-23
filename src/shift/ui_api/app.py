@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import traceback
 from pathlib import Path
 import tempfile
@@ -64,9 +65,99 @@ from shift.ui_api.models import (
     StrategyCompareRequest,
 )
 from shift.ui_api.state import UiSessionState
-from shift.utils.get_cluster import get_kmeans_clusters
+from shift.utils.get_cluster import get_kmeans_clusters, get_capacity_distance_clusters
+from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
 _GEOD = Geod(ellps="WGS84")
+_GDM_UPGRADE_HANDLER = UpgradeHandler().upgrade
+
+
+def _load_dataset_system_compat(path: Path) -> DatasetSystem:
+    """Load DatasetSystem JSON using GDM's official upgrade handler chain."""
+    return DatasetSystem.from_json(path, upgrade_handler=_GDM_UPGRADE_HANDLER)
+
+
+def _catalog_transformer_type(equipment) -> str:
+    primary_winding = equipment.windings[0]
+    primary_voltage_type = getattr(primary_winding, "voltage_type", None)
+    is_delta_primary = str(primary_voltage_type).endswith("LINE_TO_LINE")
+
+    if getattr(equipment, "is_center_tapped", False):
+        return (
+            TransformerTypes.SPLIT_PHASE_PRIMARY_DELTA.value
+            if is_delta_primary
+            else TransformerTypes.SPLIT_PHASE.value
+        )
+
+    if getattr(primary_winding, "num_phases", None) == 3:
+        return TransformerTypes.THREE_PHASE.value
+
+    return (
+        TransformerTypes.SINGLE_PHASE_PRIMARY_DELTA.value
+        if is_delta_primary
+        else TransformerTypes.SINGLE_PHASE.value
+    )
+
+
+def _catalog_transformer_options(catalog: DatasetSystem) -> list[dict]:
+    from gdm.distribution.equipment import DistributionTransformerEquipment
+
+    options: dict[tuple, dict] = {}
+    for equipment in catalog.get_components(DistributionTransformerEquipment):
+        voltages = [w.rated_voltage.to("kV").magnitude for w in equipment.windings]
+        capacities = [w.rated_power.to("kVA").magnitude for w in equipment.windings]
+        primary_kv = round(max(voltages), 6)
+        secondary_kv = round(min(voltages), 6)
+        capacity_kva = round(min(capacities), 6)
+        transformer_type = _catalog_transformer_type(equipment)
+        num_phases = max(getattr(w, "num_phases", 0) for w in equipment.windings)
+        key = (transformer_type, capacity_kva, primary_kv, secondary_kv)
+        if key not in options:
+            label = f"{transformer_type} | {capacity_kva:g} kVA | {primary_kv:g} -> {secondary_kv:g} kV"
+            options[key] = {
+                "label": label,
+                "transformer_type": transformer_type,
+                "transformer_capacity_kva": capacity_kva,
+                "primary_voltage_kv": primary_kv,
+                "secondary_voltage_kv": secondary_kv,
+                "is_center_tapped": bool(getattr(equipment, "is_center_tapped", False)),
+                "num_phases": num_phases,
+                "count": 0,
+            }
+        options[key]["count"] += 1
+
+    return sorted(
+        options.values(),
+        key=lambda item: (
+            item["transformer_type"],
+            item["primary_voltage_kv"],
+            item["secondary_voltage_kv"],
+            item["transformer_capacity_kva"],
+        ),
+    )
+
+
+def _select_catalog_transformer_option(
+    catalog: DatasetSystem,
+    transformer_type: str,
+    transformer_capacity_kva: float,
+    primary_voltage_kv: float,
+    secondary_voltage_kv: float,
+) -> dict | None:
+    options = _catalog_transformer_options(catalog)
+    matching_type = [opt for opt in options if opt["transformer_type"] == transformer_type]
+    if not matching_type:
+        return None
+
+    def score(option: dict) -> tuple[float, float, float]:
+        return (
+            abs(option["primary_voltage_kv"] - primary_voltage_kv)
+            + abs(option["secondary_voltage_kv"] - secondary_voltage_kv),
+            abs(option["transformer_capacity_kva"] - transformer_capacity_kva),
+            option["transformer_capacity_kva"],
+        )
+
+    return min(matching_type, key=score)
 
 
 def _graph_metrics(graph) -> dict[str, float | int | bool]:
@@ -259,28 +350,6 @@ def _centroid_and_area_m2(parcel_geometry) -> tuple[GeoLocation, float]:
     return GeoLocation(parcel_geometry.longitude, parcel_geometry.latitude), 0.0
 
 
-def _estimate_load_kva(area_m2: float, building_type: str | None) -> float:
-    btype = (building_type or "").lower()
-    kva_per_m2 = 0.02
-
-    if any(tag in btype for tag in ["industrial", "factory", "warehouse"]):
-        kva_per_m2 = 0.05
-    elif any(tag in btype for tag in ["commercial", "retail", "office", "school"]):
-        kva_per_m2 = 0.035
-    elif any(tag in btype for tag in ["hospital", "data", "critical"]):
-        kva_per_m2 = 0.06
-    elif any(tag in btype for tag in ["house", "residential", "apartments", "dorm"]):
-        kva_per_m2 = 0.02
-
-    # Keep tiny/point parcels from collapsing to near-zero weight.
-    return max(5.0, area_m2 * kva_per_m2)
-
-
-def _distance_m(a: GeoLocation, b: GeoLocation) -> float:
-    _, _, dist_m = _GEOD.inv(a.longitude, a.latitude, b.longitude, b.latitude)
-    return float(abs(dist_m))
-
-
 def _estimate_feeder_count(
     *,
     parcel_count: int,
@@ -407,81 +476,19 @@ def _build_area_aware_clusters(payload: ClusterRequest) -> list[GroupModel]:
     return [*dedicated, *grouped]
 
 
-def _build_capacity_distance_clusters(payload: ClusterRequest) -> list[GroupModel]:  # noqa: C901
+def _build_capacity_distance_clusters(payload: ClusterRequest) -> list[GroupModel]:
     if not payload.parcels:
         raise ValueError("Capacity-distance clustering requires parcels payload.")
 
-    dedicated: list[GroupModel] = []
-    shared_entries: list[dict] = []
-    for parcel in payload.parcels:
-        center, area_m2 = _centroid_and_area_m2(parcel.geometry)
-        load_kva = _estimate_load_kva(area_m2, parcel.building_type)
-
-        if (
-            area_m2 >= payload.dedicated_transformer_area_m2
-            or load_kva >= payload.dedicated_transformer_load_kva
-        ):
-            dedicated.append(GroupModel(center=center, points=[center]))
-        else:
-            shared_entries.append({"point": center, "load_kva": load_kva})
-
-    if not shared_entries:
-        return dedicated
-
-    total_load = float(sum(e["load_kva"] for e in shared_entries))
-    est_clusters = max(1, int(round(total_load / payload.target_kva_per_transformer)))
-    est_clusters = max(payload.min_clusters, est_clusters)
-    est_clusters = min(est_clusters, len(shared_entries))
-    if payload.max_clusters is not None:
-        est_clusters = min(est_clusters, payload.max_clusters)
-
-    coords = np.array([(e["point"].longitude, e["point"].latitude) for e in shared_entries])
-    weights = np.array([e["load_kva"] for e in shared_entries])
-    model = KMeans(n_clusters=est_clusters, random_state=0)
-    model.fit(coords, sample_weight=weights)
-
-    centers: list[GeoLocation] = [
-        GeoLocation(float(c[0]), float(c[1])) for c in model.cluster_centers_
-    ]
-    assignments: list[list[GeoLocation]] = [[] for _ in centers]
-    remaining_capacity: list[float] = [payload.target_kva_per_transformer for _ in centers]
-
-    # Assign heaviest parcels first so capacity constraints are respected better.
-    ordered = sorted(shared_entries, key=lambda e: e["load_kva"], reverse=True)
-    for entry in ordered:
-        point = entry["point"]
-        load_kva = float(entry["load_kva"])
-
-        ranked = sorted(
-            range(len(centers)),
-            key=lambda i: _distance_m(point, centers[i]),
-        )
-
-        placed = False
-        for i in ranked:
-            if _distance_m(point, centers[i]) > payload.max_secondary_length_m:
-                continue
-            if remaining_capacity[i] < load_kva:
-                continue
-            assignments[i].append(point)
-            remaining_capacity[i] -= load_kva
-            placed = True
-            break
-
-        if not placed:
-            # Create a dedicated cluster for constraint-violating parcels.
-            centers.append(point)
-            assignments.append([point])
-            remaining_capacity.append(max(payload.target_kva_per_transformer, load_kva) - load_kva)
-
-    grouped: list[GroupModel] = []
-    for i, points in enumerate(assignments):
-        if not points:
-            continue
-        center = centers[i]
-        grouped.append(GroupModel(center=center, points=points))
-
-    return [*dedicated, *grouped]
+    return get_capacity_distance_clusters(
+        payload.parcels,
+        target_kva_per_transformer=payload.target_kva_per_transformer,
+        dedicated_transformer_area_m2=payload.dedicated_transformer_area_m2,
+        dedicated_transformer_load_kva=payload.dedicated_transformer_load_kva,
+        max_secondary_length_m=payload.max_secondary_length_m,
+        min_clusters=payload.min_clusters,
+        max_clusters=payload.max_clusters,
+    )
 
 
 def _build_balanced_kmeans_clusters(
@@ -524,6 +531,28 @@ def create_app() -> FastAPI:  # noqa: C901
     app = FastAPI(title="SHIFT UI API", version="0.1.0")
     state = UiSessionState()
 
+    def _write_complete_model_bundle(system_name: str, system) -> tuple[Path, Path, Path]:
+        """Write full system bundle (JSON + time_series) and zip archive.
+
+        Returns: (json_path, bundle_dir, bundle_zip_path)
+        """
+        temp_dir = Path(tempfile.gettempdir())
+        json_path = temp_dir / f"{system_name}.json"
+        bundle_dir = temp_dir / f"{system_name}_bundle"
+        bundle_zip = temp_dir / f"{system_name}_bundle.zip"
+
+        system.to_json(str(json_path), overwrite=True)
+
+        if bundle_dir.exists():
+            shutil.rmtree(bundle_dir)
+        system.save(bundle_dir, filename=f"{system_name}.json", overwrite=True)
+
+        if bundle_zip.exists():
+            bundle_zip.unlink()
+        shutil.make_archive(str(bundle_dir), "zip", bundle_dir)
+
+        return json_path, bundle_dir, bundle_zip
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -546,7 +575,28 @@ def create_app() -> FastAPI:  # noqa: C901
             "secondary_strategies": [x.value for x in SecondaryStrategyName],
             "phase_methods": ["agglomerative", "kmean", "greedy"],
             "transformer_types": [x.value for x in TransformerTypes],
+            "flow_solvers": ["ldf", "ac"],
         }
+
+    @app.post("/api/catalog/transformers")
+    def catalog_transformers(payload: dict) -> dict:
+        catalog_path = payload.get("catalog_path")
+        if not catalog_path:
+            raise HTTPException(status_code=400, detail="catalog_path is required")
+
+        path = Path(catalog_path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"Catalog file not found: {catalog_path}")
+
+        try:
+            catalog = _load_dataset_system_compat(path)
+            return {
+                "success": True,
+                "catalog_path": str(path),
+                "transformers": _catalog_transformer_options(catalog),
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/parcels/fetch")
     def fetch_parcels(payload: FetchParcelsRequest) -> dict:
@@ -927,7 +977,7 @@ def create_app() -> FastAPI:  # noqa: C901
             )
 
         try:
-            catalog = DatasetSystem.from_json(Path(payload.catalog_path))
+            catalog = _load_dataset_system_compat(Path(payload.catalog_path))
             mapper = EdgeEquipmentMapper(
                 graph,
                 catalog,
@@ -981,11 +1031,15 @@ def create_app() -> FastAPI:  # noqa: C901
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         system.to_json(out)
+        _, bundle_dir, bundle_zip = _write_complete_model_bundle(payload.system_name, system)
         return {
             "success": True,
             "system_name": payload.system_name,
             "output_path": str(out),
+            "bundle_dir": str(bundle_dir),
+            "bundle_zip_path": str(bundle_zip),
             "download_url": f"/api/system/{payload.system_name}/download",
+            "download_bundle_url": f"/api/system/{payload.system_name}/download-bundle",
         }
 
     @app.get("/api/system/{system_name}/download")
@@ -994,12 +1048,24 @@ def create_app() -> FastAPI:  # noqa: C901
         if system is None:
             raise HTTPException(status_code=404, detail=f"Unknown system {system_name}")
 
-        out = Path(tempfile.gettempdir()) / f"{system_name}.json"
-        system.to_json(out)
+        out, _, _ = _write_complete_model_bundle(system_name, system)
         return FileResponse(
             path=out,
             filename=f"{system_name}.json",
             media_type="application/json",
+        )
+
+    @app.get("/api/system/{system_name}/download-bundle")
+    def download_system_bundle(system_name: str):
+        system = state.systems.get(system_name)
+        if system is None:
+            raise HTTPException(status_code=404, detail=f"Unknown system {system_name}")
+
+        _, _, bundle_zip = _write_complete_model_bundle(system_name, system)
+        return FileResponse(
+            path=bundle_zip,
+            filename=f"{system_name}_bundle.zip",
+            media_type="application/zip",
         )
 
     @app.post("/api/system/fix-violations")
@@ -1009,7 +1075,13 @@ def create_app() -> FastAPI:  # noqa: C901
         Requires the optional 'flow' extra: pip install nrel-shift[flow]
         """
         try:
-            from gdm_flow.fix import fix_violations
+            from gdm_flow.fix import (
+                AddCapacitorStrategy,
+                AdjustRegulatorTapStrategy,
+                ResizeConductorStrategy,
+                ResizeTransformerStrategy,
+                fix_violations,
+            )
         except ImportError:
             raise HTTPException(
                 status_code=501,
@@ -1024,14 +1096,40 @@ def create_app() -> FastAPI:  # noqa: C901
             )
 
         system = state.systems[system_name]
+        output_system_name = payload.get("output_system_name") or system_name
         max_iterations = int(payload.get("max_iterations", 10))
-        solver = payload.get("solver", "ldf")
+        solver = str(payload.get("solver", "ldf")).strip().lower()
+        if solver not in {"ldf", "ac"}:
+            raise HTTPException(
+                status_code=400, detail=f"Unsupported solver '{solver}'. Use 'ldf' or 'ac'."
+            )
         vm_min_pu = float(payload.get("vm_min_pu", 0.95))
         vm_max_pu = float(payload.get("vm_max_pu", 1.05))
+        impedance_reduction_factor = float(payload.get("impedance_reduction_factor", 0.90))
+        if not (0.0 < impedance_reduction_factor < 1.0):
+            raise HTTPException(
+                status_code=400,
+                detail="impedance_reduction_factor must be > 0 and < 1",
+            )
+
+        try:
+            conductor_strategy = ResizeConductorStrategy(
+                impedance_reduction_factor=impedance_reduction_factor
+            )
+        except TypeError:
+            conductor_strategy = ResizeConductorStrategy()
+
+        strategies = [
+            AdjustRegulatorTapStrategy(),
+            AddCapacitorStrategy(),
+            conductor_strategy,
+            ResizeTransformerStrategy(),
+        ]
 
         try:
             result = fix_violations(
                 system,
+                strategies=strategies,
                 max_iterations=max_iterations,
                 solver=solver,
                 vm_min_pu=vm_min_pu,
@@ -1040,14 +1138,11 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        # If fixes were applied, re-export and update download
-        download_url = None
-        if result.total_actions > 0:
-            out = Path(tempfile.gettempdir()) / f"{system_name}_fixed.json"
-            system.to_json(str(out), overwrite=True)
-            # Store as a separate fixed system for download
-            state.systems[f"{system_name}_fixed"] = system
-            download_url = f"/api/system/{system_name}_fixed/download"
+        # Keep the latest fixed system snapshot under requested output name.
+        state.systems[output_system_name] = system
+        _, _, bundle_zip = _write_complete_model_bundle(output_system_name, system)
+        download_url = f"/api/system/{output_system_name}/download"
+        download_bundle_url = f"/api/system/{output_system_name}/download-bundle"
 
         return {
             "success": result.success,
@@ -1057,7 +1152,11 @@ def create_app() -> FastAPI:  # noqa: C901
             "final_voltage_violations": result.final_voltage_violations,
             "final_loading_violations": result.final_loading_violations,
             "total_actions": result.total_actions,
+            "violations_fixed": result.violations_fixed,
             "iterations": len(result.iterations),
+            "solver": solver,
+            "max_iterations": max_iterations,
+            "impedance_reduction_factor": impedance_reduction_factor,
             "iteration_details": [
                 {
                     "iteration": it.iteration,
@@ -1068,6 +1167,9 @@ def create_app() -> FastAPI:  # noqa: C901
                 for it in result.iterations
             ],
             "download_url": download_url,
+            "download_bundle_url": download_bundle_url,
+            "bundle_zip_path": str(bundle_zip),
+            "output_system_name": output_system_name,
         }
 
     @app.post("/api/config/local-pbf")
@@ -1365,7 +1467,11 @@ def create_app() -> FastAPI:  # noqa: C901
                 "graph_summary": graph_summary,
                 "geometry": geometry,
                 "system_name": sys_result.get("system_name"),
+                "output_path": sys_result.get("output_path"),
+                "bundle_dir": sys_result.get("bundle_dir"),
+                "bundle_zip_path": sys_result.get("bundle_zip_path"),
                 "download_url": sys_result.get("download_url"),
+                "download_bundle_url": sys_result.get("download_bundle_url"),
             }
         except Exception as exc:
             traceback.print_exc()
@@ -1381,7 +1487,6 @@ def create_app() -> FastAPI:  # noqa: C901
         try:
             from functools import cached_property as _cached_property
             from gdm.distribution.equipment import (
-                DistributionTransformerEquipment,
                 LoadEquipment,
                 PhaseLoadEquipment,
                 VoltageSourceEquipment,
@@ -1389,8 +1494,9 @@ def create_app() -> FastAPI:  # noqa: C901
             )
             from gdm.distribution.components import DistributionVoltageSource, DistributionLoad
             from gdm.distribution.components import DistributionTransformer as _DT
-            from gdm.distribution.enums import VoltageTypes
+            from gdm.distribution.enums import VoltageTypes, Phase as _Phase
             from gdm.quantities import Reactance, ActivePower as _AP, ReactivePower as _RP
+            from infrasys.component import Component as _Component
             from infrasys.quantities import Resistance, Angle
             from shift.data_model import TransformerVoltageModel as _TVM
 
@@ -1426,15 +1532,17 @@ def create_app() -> FastAPI:  # noqa: C901
             # Load catalog if provided, else try auto-detect voltages
             catalog = None
             if payload.catalog_path:
-                from gdm.distribution import DistributionSystem as _DS
-
-                catalog = _DS.from_json(Path(payload.catalog_path))
-                # Auto-adjust voltages to match catalog
-                cat_xfmrs = list(catalog.get_components(DistributionTransformerEquipment))
-                if cat_xfmrs:
-                    wdg_vs = [w.rated_voltage for w in cat_xfmrs[0].windings]
-                    pri = max(wdg_vs).to("kV").magnitude
-                    sec = min(wdg_vs).to("kV").magnitude
+                catalog = _load_dataset_system_compat(Path(payload.catalog_path))
+                selected_option = _select_catalog_transformer_option(
+                    catalog,
+                    payload.transformer_type,
+                    payload.transformer_capacity_kva,
+                    payload.primary_voltage_kv,
+                    payload.secondary_voltage_kv,
+                )
+                if selected_option is not None:
+                    pri = selected_option["primary_voltage_kv"]
+                    sec = selected_option["secondary_voltage_kv"]
                     v_models = [
                         _TVM(
                             name=edge.name,
@@ -1452,6 +1560,62 @@ def create_app() -> FastAPI:  # noqa: C901
                 @_cached_property
                 def node_asset_equipment_mapping(self):
                     mapping = {}
+
+                    def _build_phase_matched_load(
+                        template: LoadEquipment,
+                        node_name: str,
+                        phase_count: int,
+                    ) -> LoadEquipment:
+                        """Create load equipment whose phase_loads length matches node phase count."""
+                        count = max(1, phase_count)
+                        src_phase_loads = (
+                            list(template.phase_loads) if template.phase_loads else []
+                        )
+                        if not src_phase_loads:
+                            src_phase_loads = [
+                                PhaseLoadEquipment(
+                                    name=f"{node_name}_phase_load_template",
+                                    real_power=_AP(10, "kilowatt"),
+                                    reactive_power=_RP(3, "kilovar"),
+                                    z_real=0,
+                                    z_imag=0,
+                                    i_real=0,
+                                    i_imag=0,
+                                    p_real=1,
+                                    p_imag=1,
+                                )
+                            ]
+
+                        total_p_kw = sum(
+                            pl.real_power.to("kilowatt").magnitude for pl in src_phase_loads
+                        )
+                        total_q_kvar = sum(
+                            pl.reactive_power.to("kilovar").magnitude for pl in src_phase_loads
+                        )
+
+                        base = src_phase_loads[0]
+                        per_phase_p_kw = total_p_kw / count if count else total_p_kw
+                        per_phase_q_kvar = total_q_kvar / count if count else total_q_kvar
+
+                        phase_loads = [
+                            PhaseLoadEquipment(
+                                name=f"{node_name}_phase_load_{idx + 1}",
+                                real_power=_AP(per_phase_p_kw, "kilowatt"),
+                                reactive_power=_RP(per_phase_q_kvar, "kilovar"),
+                                z_real=base.z_real,
+                                z_imag=base.z_imag,
+                                i_real=base.i_real,
+                                i_imag=base.i_imag,
+                                p_real=base.p_real,
+                                p_imag=base.p_imag,
+                            )
+                            for idx in range(count)
+                        ]
+
+                        return LoadEquipment(
+                            name=f"{node_name}_load_equipment", phase_loads=phase_loads
+                        )
+
                     load_equips = (
                         list(self.catalog_sys.get_components(LoadEquipment))
                         if self.catalog_sys
@@ -1497,7 +1661,15 @@ def create_app() -> FastAPI:  # noqa: C901
                             continue
                         nm = {}
                         if DistributionLoad in node.assets:
-                            nm[DistributionLoad] = default_load
+                            phases = self.phase_mapper.asset_phase_mapping[node.name][
+                                DistributionLoad
+                            ]
+                            load_phase_count = len([ph for ph in phases if ph != _Phase.N])
+                            nm[DistributionLoad] = _build_phase_matched_load(
+                                default_load,
+                                node.name,
+                                load_phase_count,
+                            )
                         if DistributionVoltageSource in node.assets:
                             nm[DistributionVoltageSource] = vsrc
                         if nm:
@@ -1526,16 +1698,22 @@ def create_app() -> FastAPI:  # noqa: C901
             state.systems[payload.system_name] = system
 
             # Export
-            out = Path(tempfile.gettempdir()) / f"{payload.system_name}.json"
-            system.to_json(str(out), overwrite=True)
+            out, bundle_dir, bundle_zip = _write_complete_model_bundle(
+                payload.system_name,
+                system,
+            )
+
+            component_count = len(list(system.get_components(_Component)))
 
             return {
                 "success": True,
                 "system_name": payload.system_name,
-                "components": system.to_records().shape[0]
-                if hasattr(system, "to_records")
-                else "built",
+                "components": component_count,
+                "output_path": str(out),
+                "bundle_dir": str(bundle_dir),
+                "bundle_zip_path": str(bundle_zip),
                 "download_url": f"/api/system/{payload.system_name}/download",
+                "download_bundle_url": f"/api/system/{payload.system_name}/download-bundle",
             }
         except Exception as exc:
             traceback.print_exc()

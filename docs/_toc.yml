@@ -17,6 +17,7 @@ parts:
           - file: usage/mapping_voltages
           - file: usage/mapping_equipment
           - file: usage/building_system
+          - file: usage/ui_studio
   - caption: API Reference
     chapters:
       - file: references/index

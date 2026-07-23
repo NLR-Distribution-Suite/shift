@@ -15,3 +15,4 @@ The guides are listed in the order you would typically follow:
 5. [Mapping Voltages](mapping_voltages.md) — Assign primary and secondary voltage levels
 6. [Mapping Equipment](mapping_equipment.md) — Map loads, sources, and catalog equipment to nodes
 7. [Building a System](building_system.md) — Assemble everything into a Grid Data Models system
+8. [UI Studio](ui_studio.md) — Run the browser UI and iterate on routing/secondary strategies interactively
