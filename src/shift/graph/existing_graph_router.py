@@ -43,6 +43,10 @@ from shift.utils.get_cluster import get_kmeans_clusters
 _SOURCE_KEYWORDS = ("source", "substation", "slack", "feeder", "grid", "swing")
 _LOAD_KEYWORDS = ("load", "consumer", "demand", "customer", "house", "residential")
 
+# Road segments within this many metres of a DiGress corridor receive the full
+# topology discount in the biased routing strategy (fades to zero past it).
+_CORRIDOR_RADIUS_M = 80.0
+
 
 @dataclass
 class AbstractGraph:
@@ -246,6 +250,7 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
         relaxation_iterations: int = 250,
         use_road_network: bool = False,
         routing_strategy: str = "mst",
+        topology_bias: float = 0.7,
     ):
         # groups are not used by this builder; pass an empty list to the base.
         super().__init__(groups=[], source_location=source_location)
@@ -257,6 +262,7 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
         self.relaxation_iterations = max(0, int(relaxation_iterations))
         self.use_road_network = bool(use_road_network)
         self.routing_strategy = str(routing_strategy or "mst").lower()
+        self.topology_bias = max(0.0, min(1.0, float(topology_bias)))
         self._roles: NodeRoles | None = None
         self._load_node_names: list[str] = []
         self._source_node_name: str = ""
@@ -331,14 +337,24 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
         if len(terminals) < 2:
             return None
 
-        strategies = {
-            "mst": MinimumSpanningTreeStrategy,
-            "shortest_path": ShortestPathTreeStrategy,
-            "steiner": lambda: WeightedSteinerTreeStrategy(crossing_penalty=3.0),
-        }
-        factory = strategies.get(self.routing_strategy, MinimumSpanningTreeStrategy)
+        if self.routing_strategy in ("biased", "road_faithful", "digress_biased"):
+            # Marry the generated topology with the road network: bias the road
+            # edge weights so segments lying along the DiGress-implied corridors
+            # are cheaper, then let the Steiner solver route over real streets.
+            corridors = self._digress_corridors(roles, anchors)
+            strategy = WeightedSteinerTreeStrategy(
+                weight_fn=self._biased_weight_fn(corridors, self.topology_bias),
+                crossing_penalty=1.0,
+            )
+        else:
+            strategies = {
+                "mst": MinimumSpanningTreeStrategy,
+                "shortest_path": ShortestPathTreeStrategy,
+                "steiner": lambda: WeightedSteinerTreeStrategy(crossing_penalty=3.0),
+            }
+            strategy = strategies.get(self.routing_strategy, MinimumSpanningTreeStrategy)()
         try:
-            tree = factory().route(road, terminals)
+            tree = strategy.route(road, terminals)
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Road routing ({self.routing_strategy}) failed: {exc}")
             return None
@@ -438,17 +454,15 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
             anchors[load] = centers[i % len(centers)]
         return anchors
 
-    def _embed(self) -> nx.Graph:
-        abstract = self.abstract_graph
-        graph = self._build_nx()
+    def _relaxed_positions(
+        self, graph: nx.Graph, anchors: dict[int, GeoLocation]
+    ) -> dict[int, list[float]]:
+        """Place every node geographically with anchored Laplacian relaxation.
 
-        roles = resolve_node_roles(abstract, graph, self.source_node_index)
-        self._roles = roles
-        self._ensure_connected(graph, roles.source)
-
-        anchors = self._anchor_positions(graph, roles)
-
-        # Initialise every node at the centroid of the anchors.
+        Anchored (source/load) nodes stay fixed at their geo-location; free
+        (junction) nodes iteratively move to the mean of their neighbours,
+        converging to a topology-respecting layout.
+        """
         cx = sum(loc.longitude for loc in anchors.values()) / len(anchors)
         cy = sum(loc.latitude for loc in anchors.values()) / len(anchors)
         pos: dict[int, list[float]] = {}
@@ -458,9 +472,6 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
             else:
                 pos[node] = [cx, cy]
 
-        # Anchored Laplacian relaxation: free nodes move to the mean of their
-        # neighbours while anchors stay fixed. Converges to a topology-respecting
-        # geographic layout.
         free_nodes = [n for n in graph.nodes if n not in anchors]
         for _ in range(self.relaxation_iterations):
             max_delta = 0.0
@@ -474,6 +485,75 @@ class ExistingGraphRouter(OpenStreetGraphBuilder):
                 pos[node] = [nx_, ny_]
             if max_delta < 1e-9:
                 break
+        return pos
+
+    def _digress_corridors(
+        self, roles: "NodeRoles", anchors: dict[int, GeoLocation]
+    ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+        """Return the generated topology's edges as geographic corridor segments.
+
+        The abstract graph is embedded (respecting its connectivity) so every
+        node -- including junctions -- gets a position; each abstract edge then
+        becomes a ``((lon, lat), (lon, lat))`` corridor the road router is biased
+        toward.
+        """
+        graph = self._build_nx()
+        self._ensure_connected(graph, roles.source)
+        pos = self._relaxed_positions(graph, anchors)
+        return [((pos[u][0], pos[u][1]), (pos[v][0], pos[v][1])) for u, v in graph.edges]
+
+    def _biased_weight_fn(self, corridors, bias: float):
+        """Build a Steiner ``weight_fn`` that discounts road edges near corridors.
+
+        A road segment's length is scaled by ``1 - bias`` when it sits on a
+        DiGress corridor and returns smoothly to full cost past
+        ``_CORRIDOR_RADIUS_M``. ``bias -> 0`` recovers plain shortest-length
+        routing; ``bias -> 1`` hugs the generated topology as closely as the
+        road graph allows. All maths is done in a local planar (metre) frame.
+        """
+        from math import cos, radians
+
+        lat0 = (
+            sum((a[1] + b[1]) / 2 for a, b in corridors) / len(corridors)
+            if corridors
+            else self.source_location.latitude
+        )
+        m_lon = 111320.0 * max(0.1, cos(radians(lat0)))
+        m_lat = 110540.0
+        segs = [((a[0] * m_lon, a[1] * m_lat), (b[0] * m_lon, b[1] * m_lat)) for a, b in corridors]
+
+        def _pt_seg(px, py, ax, ay, bx, by) -> float:
+            dx, dy = bx - ax, by - ay
+            len2 = dx * dx + dy * dy
+            if len2 == 0.0:
+                return ((px - ax) ** 2 + (py - ay) ** 2) ** 0.5
+            t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / len2))
+            qx, qy = ax + t * dx, ay + t * dy
+            return ((px - qx) ** 2 + (py - qy) ** 2) ** 0.5
+
+        def weight_fn(graph: nx.Graph, u: str, v: str) -> float:
+            ux, uy = graph.nodes[u]["x"] * m_lon, graph.nodes[u]["y"] * m_lat
+            vx, vy = graph.nodes[v]["x"] * m_lon, graph.nodes[v]["y"] * m_lat
+            base = ((ux - vx) ** 2 + (uy - vy) ** 2) ** 0.5
+            if not segs or bias <= 0.0:
+                return base
+            mx, my = (ux + vx) / 2.0, (uy + vy) / 2.0
+            dist = min(_pt_seg(mx, my, ax, ay, bx, by) for (ax, ay), (bx, by) in segs)
+            discount = bias * max(0.0, 1.0 - dist / _CORRIDOR_RADIUS_M)
+            return base * (1.0 - discount)
+
+        return weight_fn
+
+    def _embed(self) -> nx.Graph:
+        abstract = self.abstract_graph
+        graph = self._build_nx()
+
+        roles = resolve_node_roles(abstract, graph, self.source_node_index)
+        self._roles = roles
+        self._ensure_connected(graph, roles.source)
+
+        anchors = self._anchor_positions(graph, roles)
+        pos = self._relaxed_positions(graph, anchors)
 
         # Relabel integer node ids to stable unique string names and write coords.
         embedded = nx.Graph()

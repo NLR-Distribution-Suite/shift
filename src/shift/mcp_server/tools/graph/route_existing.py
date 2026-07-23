@@ -26,6 +26,7 @@ def register(mcp: FastMCP) -> None:
         relaxation_iterations: int = 250,
         use_road_network: bool = False,
         routing_strategy: str = "mst",
+        topology_bias: float = 0.7,
         name: str = "",
     ) -> str:
         """Route an existing abstract graph onto parcel geography.
@@ -49,6 +50,14 @@ def register(mcp: FastMCP) -> None:
                 Auto-detected from labels/degree when omitted.
             relaxation_iterations: Laplacian smoothing iterations for junction
                 placement (default 250).
+            use_road_network: Route the source and loads over the OSM road
+                network so feeders follow real streets (default False).
+            routing_strategy: Road-routing strategy when ``use_road_network`` is
+                set: ``"mst"`` (default), ``"shortest_path"``, ``"steiner"``, or
+                ``"biased"`` -- a DiGress-biased Steiner tree that follows roads
+                while hugging the generated topology's corridors.
+            topology_bias: Strength (0..1) of the generated-topology bias for the
+                ``"biased"`` strategy (default 0.7; 0 = pure shortest road path).
             name: Optional name for the created graph.
 
         Returns:
@@ -88,6 +97,7 @@ def register(mcp: FastMCP) -> None:
                 relaxation_iterations=relaxation_iterations,
                 use_road_network=use_road_network,
                 routing_strategy=routing_strategy,
+                topology_bias=topology_bias,
             )
             dist_graph = router.get_distribution_graph()
 
