@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import queue
 import shutil
 import traceback
 from pathlib import Path
@@ -12,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from gdm.quantities import ApparentPower, Voltage
 from infrasys import Location
 from infrasys.quantities import Distance
+from loguru import logger as _loguru
+from starlette.responses import StreamingResponse
 import numpy as np
 from sklearn.cluster import KMeans
 
@@ -355,40 +359,35 @@ def _load_road_graph_for_snap(clusters: list[dict], polygon: list[dict]):
     return road_graph
 
 
-def create_app() -> FastAPI:  # noqa: C901
-    app = FastAPI(title="SHIFT UI API", version="0.1.0")
-    state = UiSessionState()
+def _write_complete_model_bundle(system_name: str, system) -> tuple[Path, Path, Path]:
+    """Write full system bundle (JSON + time_series) and zip archive.
 
-    def _write_complete_model_bundle(system_name: str, system) -> tuple[Path, Path, Path]:
-        """Write full system bundle (JSON + time_series) and zip archive.
+    Returns: (json_path, bundle_dir, bundle_zip_path)
+    """
+    temp_dir = Path(tempfile.gettempdir())
+    json_path = temp_dir / f"{system_name}.json"
+    bundle_dir = temp_dir / f"{system_name}_bundle"
+    bundle_zip = temp_dir / f"{system_name}_bundle.zip"
 
-        Returns: (json_path, bundle_dir, bundle_zip_path)
-        """
-        temp_dir = Path(tempfile.gettempdir())
-        json_path = temp_dir / f"{system_name}.json"
-        bundle_dir = temp_dir / f"{system_name}_bundle"
-        bundle_zip = temp_dir / f"{system_name}_bundle.zip"
+    system.to_json(str(json_path), overwrite=True)
 
-        system.to_json(str(json_path), overwrite=True)
+    if bundle_dir.exists():
+        shutil.rmtree(bundle_dir)
+    system.save(bundle_dir, filename=f"{system_name}.json", overwrite=True)
 
-        if bundle_dir.exists():
-            shutil.rmtree(bundle_dir)
-        system.save(bundle_dir, filename=f"{system_name}.json", overwrite=True)
+    if bundle_zip.exists():
+        bundle_zip.unlink()
+    shutil.make_archive(str(bundle_dir), "zip", bundle_dir)
 
-        if bundle_zip.exists():
-            bundle_zip.unlink()
-        shutil.make_archive(str(bundle_dir), "zip", bundle_dir)
+    return json_path, bundle_dir, bundle_zip
 
-        return json_path, bundle_dir, bundle_zip
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# ---------------------------------------------------------------------------
+# Route registration functions
+# ---------------------------------------------------------------------------
 
+
+def _register_data_routes(app: FastAPI, state: UiSessionState) -> None:  # noqa: C901
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -453,6 +452,102 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/parcels/fetch-local")
+    def fetch_parcels_local(payload: dict) -> dict:
+        """Fetch parcels from local PBF via osmium extract + OSMnx XML parsing."""
+        from shift.openstreet_roads import extract_from_pbf, get_local_pbf
+
+        if not get_local_pbf():
+            raise HTTPException(
+                status_code=400,
+                detail="No local PBF configured. POST /api/config/local-pbf first.",
+            )
+
+        polygon = payload.get("polygon", [])
+        if len(polygon) < 3:
+            raise HTTPException(status_code=400, detail="Polygon needs at least 3 points.")
+
+        try:
+            lons = [p["longitude"] for p in polygon]
+            lats = [p["latitude"] for p in polygon]
+            bbox = (min(lons), min(lats), max(lons), max(lats))
+
+            # Extract from PBF
+            xml_path = extract_from_pbf(bbox)
+
+            # Parse buildings from XML (handle broken relations gracefully)
+            import defusedxml.ElementTree as ET
+
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+
+            # Build node lookup
+            nodes_map = {}
+            for node_el in root.findall("node"):
+                nid = node_el.get("id")
+                nodes_map[nid] = {
+                    "longitude": float(node_el.get("lon")),
+                    "latitude": float(node_el.get("lat")),
+                }
+
+            # Extract building ways and filter by actual polygon
+            from shapely.geometry import Point as _ShapelyPoint, Polygon as _ShapelyPolygon
+
+            user_polygon = _ShapelyPolygon([(p["longitude"], p["latitude"]) for p in polygon])
+
+            parcels = []
+            for way_el in root.findall("way"):
+                tags = {t.get("k"): t.get("v") for t in way_el.findall("tag")}
+                if "building" not in tags:
+                    continue
+                nd_refs = [nd.get("ref") for nd in way_el.findall("nd")]
+                coords = [nodes_map[ref] for ref in nd_refs if ref in nodes_map]
+                if len(coords) < 3:
+                    continue
+
+                # Check if centroid falls within the user's polygon
+                avg_lon = sum(c["longitude"] for c in coords) / len(coords)
+                avg_lat = sum(c["latitude"] for c in coords) / len(coords)
+                if not user_polygon.contains(_ShapelyPoint(avg_lon, avg_lat)):
+                    continue
+
+                parcels.append(
+                    {
+                        "name": f"parcel_{len(parcels)}",
+                        "building_type": tags.get("building", "yes"),
+                        "city": tags.get("addr:city", ""),
+                        "state": tags.get("addr:state", ""),
+                        "postal_address": tags.get("addr:street", ""),
+                        "geometry": coords,
+                    }
+                )
+
+            # Clean up temp file
+            Path(xml_path).unlink(missing_ok=True)
+
+            return {
+                "success": True,
+                "count": len(parcels),
+                "parcels": parcels,
+                "source": "local_pbf",
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/config/local-pbf")
+    def configure_local_pbf(payload: dict) -> dict:
+        """Set the local PBF file path for offline building/road extraction."""
+        from shift.openstreet_roads import set_local_pbf
+
+        path = payload.get("pbf_path", "")
+        if not path or not Path(path).exists():
+            raise HTTPException(status_code=400, detail=f"PBF file not found: {path}")
+        set_local_pbf(path)
+        return {"success": True, "pbf_path": path}
+
+
+def _register_cluster_routes(app: FastAPI, state: UiSessionState) -> None:  # noqa: C901
     @app.post("/api/clusters/build")
     def build_clusters(payload: ClusterRequest) -> dict:
         try:
@@ -522,6 +617,75 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/clusters/snap-to-roads")
+    def snap_clusters_to_roads(payload: dict) -> dict:
+        """Snap cluster centers to nearest road nodes using local PBF."""
+        from shift.utils.snap_to_roads import snap_cluster_to_road
+
+        clusters = payload.get("clusters", [])
+        threshold_m = payload.get("threshold_m", 50.0)
+        polygon = payload.get("polygon", [])
+
+        if not clusters:
+            raise HTTPException(status_code=400, detail="No clusters provided.")
+
+        try:
+            road_graph = _load_road_graph_for_snap(clusters, polygon)
+
+            edge_segments = [
+                (
+                    road_graph.nodes[u]["x"],
+                    road_graph.nodes[u]["y"],
+                    road_graph.nodes[v]["x"],
+                    road_graph.nodes[v]["y"],
+                )
+                for u, v in road_graph.edges()
+            ]
+
+            snapped = []
+            snap_count = 0
+            for cluster in clusters:
+                center = cluster["center"]
+                center_geo = GeoLocation(center["longitude"], center["latitude"])
+                parcel_points = [
+                    GeoLocation(p["longitude"], p["latitude"]) for p in cluster.get("points", [])
+                ]
+
+                result = snap_cluster_to_road(
+                    center_geo, parcel_points, edge_segments, threshold_m
+                )
+                if result is None:
+                    snapped.append({**cluster, "snapped": False, "snap_distance_m": 999.0})
+                else:
+                    new_center = {
+                        "longitude": result["longitude"],
+                        "latitude": result["latitude"],
+                    }
+                    snapped.append(
+                        {
+                            **cluster,
+                            "center": new_center,
+                            "snapped": True,
+                            "snap_distance_m": result["snap_distance_m"],
+                        }
+                    )
+                    snap_count += 1
+
+            return {
+                "success": True,
+                "clusters": snapped,
+                "snapped_count": snap_count,
+                "total": len(clusters),
+                "threshold_m": threshold_m,
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _register_graph_routes(app: FastAPI, state: UiSessionState) -> None:  # noqa: C901
     @app.post("/api/graph/build")
     def build_graph(payload: GraphBuildRequest) -> dict:
         try:
@@ -727,6 +891,8 @@ def create_app() -> FastAPI:  # noqa: C901
                 transformers.append(edge.name)
         return {"success": True, "graph_id": graph_id, "transformers": transformers}
 
+
+def _register_mapper_routes(app: FastAPI, state: UiSessionState) -> None:  # noqa: C901
     @app.post("/api/mapper/phase")
     def configure_phase_mapper(payload: ConfigurePhaseMapperRequest) -> dict:
         graph = state.graphs.get(payload.graph_id)
@@ -817,6 +983,8 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+def _register_system_routes(app: FastAPI, state: UiSessionState) -> None:  # noqa: C901
     @app.post("/api/system/build")
     def build_system(payload: BuildSystemRequest) -> dict:
         graph = state.graphs.get(payload.graph_id)
@@ -999,264 +1167,6 @@ def create_app() -> FastAPI:  # noqa: C901
             "bundle_zip_path": str(bundle_zip),
             "output_system_name": output_system_name,
         }
-
-    @app.post("/api/config/local-pbf")
-    def configure_local_pbf(payload: dict) -> dict:
-        """Set the local PBF file path for offline building/road extraction."""
-        from shift.openstreet_roads import set_local_pbf
-
-        path = payload.get("pbf_path", "")
-        if not path or not Path(path).exists():
-            raise HTTPException(status_code=400, detail=f"PBF file not found: {path}")
-        set_local_pbf(path)
-        return {"success": True, "pbf_path": path}
-
-    @app.post("/api/clusters/snap-to-roads")
-    def snap_clusters_to_roads(payload: dict) -> dict:
-        """Snap cluster centers to nearest road nodes using local PBF."""
-        from shift.utils.snap_to_roads import snap_cluster_to_road
-
-        clusters = payload.get("clusters", [])
-        threshold_m = payload.get("threshold_m", 50.0)
-        polygon = payload.get("polygon", [])
-
-        if not clusters:
-            raise HTTPException(status_code=400, detail="No clusters provided.")
-
-        try:
-            road_graph = _load_road_graph_for_snap(clusters, polygon)
-
-            edge_segments = [
-                (
-                    road_graph.nodes[u]["x"],
-                    road_graph.nodes[u]["y"],
-                    road_graph.nodes[v]["x"],
-                    road_graph.nodes[v]["y"],
-                )
-                for u, v in road_graph.edges()
-            ]
-
-            snapped = []
-            snap_count = 0
-            for cluster in clusters:
-                center = cluster["center"]
-                center_geo = GeoLocation(center["longitude"], center["latitude"])
-                parcel_points = [
-                    GeoLocation(p["longitude"], p["latitude"]) for p in cluster.get("points", [])
-                ]
-
-                result = snap_cluster_to_road(
-                    center_geo, parcel_points, edge_segments, threshold_m
-                )
-                if result is None:
-                    snapped.append({**cluster, "snapped": False, "snap_distance_m": 999.0})
-                else:
-                    new_center = {
-                        "longitude": result["longitude"],
-                        "latitude": result["latitude"],
-                    }
-                    snapped.append(
-                        {
-                            **cluster,
-                            "center": new_center,
-                            "snapped": True,
-                            "snap_distance_m": result["snap_distance_m"],
-                        }
-                    )
-                    snap_count += 1
-
-            return {
-                "success": True,
-                "clusters": snapped,
-                "snapped_count": snap_count,
-                "total": len(clusters),
-                "threshold_m": threshold_m,
-            }
-        except HTTPException:
-            raise
-        except Exception as exc:
-            traceback.print_exc()
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.post("/api/parcels/fetch-local")
-    def fetch_parcels_local(payload: dict) -> dict:
-        """Fetch parcels from local PBF via osmium extract + OSMnx XML parsing."""
-        from shift.openstreet_roads import extract_from_pbf, get_local_pbf
-
-        if not get_local_pbf():
-            raise HTTPException(
-                status_code=400,
-                detail="No local PBF configured. POST /api/config/local-pbf first.",
-            )
-
-        polygon = payload.get("polygon", [])
-        if len(polygon) < 3:
-            raise HTTPException(status_code=400, detail="Polygon needs at least 3 points.")
-
-        try:
-            lons = [p["longitude"] for p in polygon]
-            lats = [p["latitude"] for p in polygon]
-            bbox = (min(lons), min(lats), max(lons), max(lats))
-
-            # Extract from PBF
-            xml_path = extract_from_pbf(bbox)
-
-            # Parse buildings from XML (handle broken relations gracefully)
-            import defusedxml.ElementTree as ET
-
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-
-            # Build node lookup
-            nodes_map = {}
-            for node_el in root.findall("node"):
-                nid = node_el.get("id")
-                nodes_map[nid] = {
-                    "longitude": float(node_el.get("lon")),
-                    "latitude": float(node_el.get("lat")),
-                }
-
-            # Extract building ways and filter by actual polygon
-            from shapely.geometry import Point as _ShapelyPoint, Polygon as _ShapelyPolygon
-
-            user_polygon = _ShapelyPolygon([(p["longitude"], p["latitude"]) for p in polygon])
-
-            parcels = []
-            for way_el in root.findall("way"):
-                tags = {t.get("k"): t.get("v") for t in way_el.findall("tag")}
-                if "building" not in tags:
-                    continue
-                nd_refs = [nd.get("ref") for nd in way_el.findall("nd")]
-                coords = [nodes_map[ref] for ref in nd_refs if ref in nodes_map]
-                if len(coords) < 3:
-                    continue
-
-                # Check if centroid falls within the user's polygon
-                avg_lon = sum(c["longitude"] for c in coords) / len(coords)
-                avg_lat = sum(c["latitude"] for c in coords) / len(coords)
-                if not user_polygon.contains(_ShapelyPoint(avg_lon, avg_lat)):
-                    continue
-
-                parcels.append(
-                    {
-                        "name": f"parcel_{len(parcels)}",
-                        "building_type": tags.get("building", "yes"),
-                        "city": tags.get("addr:city", ""),
-                        "state": tags.get("addr:state", ""),
-                        "postal_address": tags.get("addr:street", ""),
-                        "geometry": coords,
-                    }
-                )
-
-            # Clean up temp file
-            Path(xml_path).unlink(missing_ok=True)
-
-            return {
-                "success": True,
-                "count": len(parcels),
-                "parcels": parcels,
-                "source": "local_pbf",
-            }
-        except Exception as exc:
-            traceback.print_exc()
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.post("/api/system/quick-build")
-    def quick_build_system(payload: QuickBuildRequest) -> dict:  # noqa: C901
-        """Polygon + source → parcels → clusters → graph → GDM system in one call."""
-        try:
-            # 1. Fetch parcels
-            loc = [GeoLocation(p.longitude, p.latitude) for p in payload.polygon]
-            try:
-                raw_parcels = parcels_from_location(loc, Distance(500, "m"))
-                raw_parcels = raw_parcels or []
-            except Exception:
-                raw_parcels = []
-            if not raw_parcels:
-                raise ValueError("No parcels found in polygon.")
-
-            # 2. Cluster (area-aware)
-            parcel_data = [serialize_parcel(p) for p in raw_parcels]
-            from shift.ui_api.models import ParcelInput, ClusterRequest, ClusterStrategyName
-
-            parcel_inputs = []
-            for pd_item in parcel_data:
-                geom = pd_item["geometry"]
-                if isinstance(geom, list):
-                    geo_pts = [
-                        GeoPoint(longitude=g["longitude"], latitude=g["latitude"]) for g in geom
-                    ]
-                else:
-                    geo_pts = [GeoPoint(longitude=geom["longitude"], latitude=geom["latitude"])]
-                parcel_inputs.append(
-                    ParcelInput(
-                        name=pd_item.get("name"),
-                        building_type=pd_item.get("building_type"),
-                        geometry=geo_pts,
-                    )
-                )
-
-            cluster_req = ClusterRequest(
-                strategy=ClusterStrategyName.AREA_AWARE,
-                parcels=parcel_inputs,
-                points=[],
-                target_area_per_transformer_m2=payload.target_area_per_transformer_m2,
-                dedicated_transformer_area_m2=payload.dedicated_transformer_area_m2,
-            )
-            clusters = _build_area_aware_clusters(cluster_req)
-
-            # 3. Build graph
-            source_loc = GeoLocation(
-                payload.source_location.longitude, payload.source_location.latitude
-            )
-            from shift.graph.secondary import DelaunayStrategy as _DS, RadialStrategy as _RS
-
-            sec_strategy = {"DelaunayStrategy": _DS(), "RadialStrategy": _RS()}.get(
-                payload.secondary_strategy, _DS()
-            )
-            prsg = PRSG(
-                groups=clusters,
-                source_location=source_loc,
-                buffer=Distance(20, "m"),
-                secondary_strategy=sec_strategy,
-                offline=payload.offline,
-            )
-            graph = prsg.get_distribution_graph()
-            graph_id = state.new_id("graph")
-            state.graphs[graph_id] = graph
-
-            # 4. Build GDM system
-            build_req = BuildSystemFullRequest(
-                graph_id=graph_id,
-                system_name=payload.system_name,
-                transformer_type=payload.transformer_type,
-                transformer_capacity_kva=payload.transformer_capacity_kva,
-                primary_voltage_kv=payload.primary_voltage_kv,
-                secondary_voltage_kv=payload.secondary_voltage_kv,
-                catalog_path=payload.catalog_path,
-            )
-            sys_result = build_system_full(build_req)
-
-            geometry = _graph_geometry(graph)
-            graph_summary = serialize_graph_summary(graph, graph_id)
-            graph_summary.update(_graph_metrics(graph))
-
-            return {
-                "success": True,
-                "parcels_count": len(parcel_data),
-                "clusters_count": len(clusters),
-                "graph_summary": graph_summary,
-                "geometry": geometry,
-                "system_name": sys_result.get("system_name"),
-                "output_path": sys_result.get("output_path"),
-                "bundle_dir": sys_result.get("bundle_dir"),
-                "bundle_zip_path": sys_result.get("bundle_zip_path"),
-                "download_url": sys_result.get("download_url"),
-                "download_bundle_url": sys_result.get("download_bundle_url"),
-            }
-        except Exception as exc:
-            traceback.print_exc()
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/system/build-full")
     def build_system_full(payload: BuildSystemFullRequest) -> dict:  # noqa: C901
@@ -1500,18 +1410,111 @@ def create_app() -> FastAPI:  # noqa: C901
             traceback.print_exc()
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # --- Server-Sent Events log stream ---
-    import asyncio
-    import queue
-    from loguru import logger as _loguru
-    from starlette.responses import StreamingResponse
+    @app.post("/api/system/quick-build")
+    def quick_build_system(payload: QuickBuildRequest) -> dict:  # noqa: C901
+        """Polygon + source -> parcels -> clusters -> graph -> GDM system in one call."""
+        try:
+            # 1. Fetch parcels
+            loc = [GeoLocation(p.longitude, p.latitude) for p in payload.polygon]
+            try:
+                raw_parcels = parcels_from_location(loc, Distance(500, "m"))
+                raw_parcels = raw_parcels or []
+            except Exception:
+                raw_parcels = []
+            if not raw_parcels:
+                raise ValueError("No parcels found in polygon.")
 
+            # 2. Cluster (area-aware)
+            parcel_data = [serialize_parcel(p) for p in raw_parcels]
+            from shift.ui_api.models import ParcelInput, ClusterRequest, ClusterStrategyName
+
+            parcel_inputs = []
+            for pd_item in parcel_data:
+                geom = pd_item["geometry"]
+                if isinstance(geom, list):
+                    geo_pts = [
+                        GeoPoint(longitude=g["longitude"], latitude=g["latitude"]) for g in geom
+                    ]
+                else:
+                    geo_pts = [GeoPoint(longitude=geom["longitude"], latitude=geom["latitude"])]
+                parcel_inputs.append(
+                    ParcelInput(
+                        name=pd_item.get("name"),
+                        building_type=pd_item.get("building_type"),
+                        geometry=geo_pts,
+                    )
+                )
+
+            cluster_req = ClusterRequest(
+                strategy=ClusterStrategyName.AREA_AWARE,
+                parcels=parcel_inputs,
+                points=[],
+                target_area_per_transformer_m2=payload.target_area_per_transformer_m2,
+                dedicated_transformer_area_m2=payload.dedicated_transformer_area_m2,
+            )
+            clusters = _build_area_aware_clusters(cluster_req)
+
+            # 3. Build graph
+            source_loc = GeoLocation(
+                payload.source_location.longitude, payload.source_location.latitude
+            )
+            from shift.graph.secondary import DelaunayStrategy as _DS, RadialStrategy as _RS
+
+            sec_strategy = {"DelaunayStrategy": _DS(), "RadialStrategy": _RS()}.get(
+                payload.secondary_strategy, _DS()
+            )
+            prsg = PRSG(
+                groups=clusters,
+                source_location=source_loc,
+                buffer=Distance(20, "m"),
+                secondary_strategy=sec_strategy,
+                offline=payload.offline,
+            )
+            graph = prsg.get_distribution_graph()
+            graph_id = state.new_id("graph")
+            state.graphs[graph_id] = graph
+
+            # 4. Build GDM system
+            build_req = BuildSystemFullRequest(
+                graph_id=graph_id,
+                system_name=payload.system_name,
+                transformer_type=payload.transformer_type,
+                transformer_capacity_kva=payload.transformer_capacity_kva,
+                primary_voltage_kv=payload.primary_voltage_kv,
+                secondary_voltage_kv=payload.secondary_voltage_kv,
+                catalog_path=payload.catalog_path,
+            )
+            sys_result = build_system_full(build_req)
+
+            geometry = _graph_geometry(graph)
+            graph_summary = serialize_graph_summary(graph, graph_id)
+            graph_summary.update(_graph_metrics(graph))
+
+            return {
+                "success": True,
+                "parcels_count": len(parcel_data),
+                "clusters_count": len(clusters),
+                "graph_summary": graph_summary,
+                "geometry": geometry,
+                "system_name": sys_result.get("system_name"),
+                "output_path": sys_result.get("output_path"),
+                "bundle_dir": sys_result.get("bundle_dir"),
+                "bundle_zip_path": sys_result.get("bundle_zip_path"),
+                "download_url": sys_result.get("download_url"),
+                "download_bundle_url": sys_result.get("download_bundle_url"),
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _register_utility_routes(app: FastAPI, state: UiSessionState) -> None:
     _log_queue: queue.Queue = queue.Queue(maxsize=200)
 
     class _QueueSink:
         def write(self, message):
             record = message.record
-            line = f"[{record['level'].name}] {record['name']}:{record['function']}:{record['line']} — {record['message']}"
+            line = f"[{record['level'].name}] {record['name']}:{record['function']}:{record['line']} \u2014 {record['message']}"
             try:
                 _log_queue.put_nowait(line)
             except queue.Full:
@@ -1548,6 +1551,31 @@ def create_app() -> FastAPI:  # noqa: C901
                 "equipment": len(state.equipment_mappers),
             },
         }
+
+
+# ---------------------------------------------------------------------------
+# Application factory
+# ---------------------------------------------------------------------------
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="SHIFT UI API", version="0.1.0")
+    state = UiSessionState()
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    _register_data_routes(app, state)
+    _register_cluster_routes(app, state)
+    _register_graph_routes(app, state)
+    _register_mapper_routes(app, state)
+    _register_system_routes(app, state)
+    _register_utility_routes(app, state)
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="ui")
