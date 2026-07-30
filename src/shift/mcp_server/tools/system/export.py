@@ -6,16 +6,16 @@ import json
 import tempfile
 from pathlib import Path
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def export_system_json(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         system_name: str,
         output_path: str = "",
     ) -> str:

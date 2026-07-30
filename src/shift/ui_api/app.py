@@ -12,11 +12,11 @@ from fastapi.staticfiles import StaticFiles
 from gdm.quantities import ApparentPower, Voltage
 from infrasys import Location
 from infrasys.quantities import Distance
-from pyproj import Geod
 import numpy as np
 from sklearn.cluster import KMeans
 
 from shift.data_model import GeoLocation, GroupModel, TransformerPhaseMapperModel, TransformerTypes
+from shift.graph.graph_utils import compute_graph_metrics, extract_graph_geometry
 from shift.graph.prsgb import PRSG
 from shift.graph.routing import (
     FullRoadGraphStrategy,
@@ -32,6 +32,9 @@ from shift.graph.secondary import (
     OpenStreetSecondaryStrategy,
     RadialStrategy,
     TrunkBranchStrategy,
+)
+from shift.graph.strategy_resolver import (
+    auto_select_secondary_strategy,
 )
 from shift.mapper.balanced_phase_mapper import BalancedPhaseMapper
 from shift.mapper.edge_equipment_mapper import EdgeEquipmentMapper
@@ -65,10 +68,17 @@ from shift.ui_api.models import (
     StrategyCompareRequest,
 )
 from shift.ui_api.state import UiSessionState
-from shift.utils.get_cluster import get_kmeans_clusters, get_capacity_distance_clusters
+from shift.utils.get_cluster import (
+    centroid_and_area_m2,
+    estimate_feeder_count,
+    get_area_aware_clusters,
+    get_balanced_kmeans_clusters,
+    get_capacity_distance_clusters,
+    get_kmeans_clusters,
+)
+from shift.utils.geo import region_area_km2_from_points, region_area_km2_from_polygon
 from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
-_GEOD = Geod(ellps="WGS84")
 _GDM_UPGRADE_HANDLER = UpgradeHandler().upgrade
 
 
@@ -161,100 +171,11 @@ def _select_catalog_transformer_option(
 
 
 def _graph_metrics(graph) -> dict[str, float | int | bool]:
-    total_length_m = 0.0
-    primary_edges = 0
-    secondary_edges = 0
-    transformer_edges = 0
-    primary_length_m = 0.0
-    secondary_length_m = 0.0
-
-    transformers = 0
-    loads = 0
-    source_nodes = 0
-    transformer_nodes = set()
-
-    for node in graph.get_nodes():
-        assets = node.assets or set()
-        for asset in assets:
-            name = getattr(asset, "__name__", str(asset))
-            if name == "DistributionLoad":
-                loads += 1
-            if name == "DistributionVoltageSource":
-                source_nodes += 1
-        if node.name.endswith("_ht"):
-            transformers += 1
-            transformer_nodes.add(node.name)
-
-    # Classify edges as primary (source-side of transformer) or secondary (load-side)
-    # Build a set of nodes on the secondary side using DFS from transformer _ht nodes
-    dfs_tree = graph.get_dfs_tree()
-    secondary_node_set = set()
-    for tr_node in transformer_nodes:
-        import networkx as _nx
-
-        descendants = _nx.descendants(dfs_tree, tr_node)
-        secondary_node_set.update(descendants)
-        secondary_node_set.add(tr_node)
-
-    for from_name, to_name, edge in graph.get_edges():
-        length = float(edge.length.to("m").magnitude) if edge.length is not None else 0.0
-        total_length_m += length
-        edge_type = getattr(edge.edge_type, "__name__", str(edge.edge_type))
-        if edge_type == "DistributionTransformer":
-            transformer_edges += 1
-        elif from_name in secondary_node_set or to_name in secondary_node_set:
-            secondary_edges += 1
-            secondary_length_m += length
-        else:
-            primary_edges += 1
-            primary_length_m += length
-
-    node_count = len(list(graph.get_nodes()))
-    edge_count = len(list(graph.get_edges()))
-    is_radial = edge_count == node_count - 1  # tree: edges = nodes - 1
-
-    return {
-        "node_count": node_count,
-        "edge_count": edge_count,
-        "total_length_m": round(total_length_m, 2),
-        "transformer_hint_count": transformers,
-        "load_node_count": loads,
-        "is_radial": is_radial,
-        "primary_edges": primary_edges,
-        "primary_length_m": round(primary_length_m, 2),
-        "secondary_edges": secondary_edges,
-        "secondary_length_m": round(secondary_length_m, 2),
-        "transformer_edges": transformer_edges,
-    }
+    return compute_graph_metrics(graph)
 
 
 def _graph_geometry(graph) -> dict[str, list]:
-    """Extract node positions and edge segments for map rendering."""
-    node_map: dict[str, dict[str, float]] = {}
-    nodes_out: list[dict] = []
-    for node in graph.get_nodes():
-        loc = {"longitude": node.location.x, "latitude": node.location.y}
-        node_map[node.name] = loc
-        assets = []
-        if node.assets:
-            assets = [getattr(a, "__name__", str(a)) for a in node.assets]
-        nodes_out.append({"name": node.name, "location": loc, "assets": assets})
-
-    edges_out: list[dict] = []
-    for from_name, to_name, edge in graph.get_edges():
-        from_loc = node_map.get(from_name)
-        to_loc = node_map.get(to_name)
-        if from_loc and to_loc:
-            edge_type = getattr(edge.edge_type, "__name__", str(edge.edge_type))
-            edges_out.append(
-                {
-                    "from": from_loc,
-                    "to": to_loc,
-                    "type": edge_type,
-                    "name": edge.name,
-                }
-            )
-    return {"nodes": nodes_out, "edges": edges_out}
+    return extract_graph_geometry(graph)
 
 
 def _resolve_strategies(payload: GraphBuildRequest):
@@ -332,72 +253,20 @@ def _resolve_strategies(payload: GraphBuildRequest):
 
 
 def _centroid_and_area_m2(parcel_geometry) -> tuple[GeoLocation, float]:
-    if isinstance(parcel_geometry, list):
-        lons = [p.longitude for p in parcel_geometry]
-        lats = [p.latitude for p in parcel_geometry]
-        if len(lons) < 3:
-            return GeoLocation(lons[0], lats[0]), 0.0
-
-        # Close polygon ring for geodesic area if not already closed.
-        if lons[0] != lons[-1] or lats[0] != lats[-1]:
-            lons = [*lons, lons[0]]
-            lats = [*lats, lats[0]]
-
-        area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
-        centroid = GeoLocation(float(np.mean(lons[:-1])), float(np.mean(lats[:-1])))
-        return centroid, abs(float(area_m2))
-
-    return GeoLocation(parcel_geometry.longitude, parcel_geometry.latitude), 0.0
+    """Thin wrapper around centroid_and_area_m2 for backward compat."""
+    return centroid_and_area_m2(parcel_geometry)
 
 
-def _estimate_feeder_count(
-    *,
-    parcel_count: int,
-    region_area_km2: float,
-    target_parcels_per_feeder: int,
-    high_density_threshold_per_km2: float,
-    large_region_threshold_km2: float,
-    min_feeders: int,
-    max_feeders: int,
-) -> int:
-    base = max(1, int(np.ceil(parcel_count / max(1, target_parcels_per_feeder))))
-    density = parcel_count / max(region_area_km2, 0.01)
-
-    if density > high_density_threshold_per_km2:
-        base += 1
-    if region_area_km2 > large_region_threshold_km2:
-        base += 1
-
-    return max(min_feeders, min(max_feeders, base))
+def _estimate_feeder_count(**kwargs) -> int:
+    return estimate_feeder_count(**kwargs)
 
 
 def _region_area_km2_from_polygon(points: list[GeoLocation] | None) -> float:
-    if not points or len(points) < 3:
-        return 0.0
-
-    lons = [p.longitude for p in points]
-    lats = [p.latitude for p in points]
-    if lons[0] != lons[-1] or lats[0] != lats[-1]:
-        lons = [*lons, lons[0]]
-        lats = [*lats, lats[0]]
-
-    area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
-    return abs(float(area_m2)) / 1_000_000.0
+    return region_area_km2_from_polygon(points)
 
 
 def _region_area_km2_from_points(points: list[GeoLocation]) -> float:
-    if not points or len(points) < 2:
-        return 0.0
-
-    min_lon = min(p.longitude for p in points)
-    max_lon = max(p.longitude for p in points)
-    min_lat = min(p.latitude for p in points)
-    max_lat = max(p.latitude for p in points)
-
-    lons = [min_lon, max_lon, max_lon, min_lon, min_lon]
-    lats = [min_lat, min_lat, max_lat, max_lat, min_lat]
-    area_m2, _ = _GEOD.polygon_area_perimeter(lons, lats)
-    return abs(float(area_m2)) / 1_000_000.0
+    return region_area_km2_from_points(points)
 
 
 def _auto_select_secondary_strategy(
@@ -406,80 +275,30 @@ def _auto_select_secondary_strategy(
     polygon_points: list[GeoLocation] | None,
     density_threshold_per_km2: float,
 ) -> tuple[SecondaryStrategyName, dict[str, float | str]]:
-    if len(candidate_points) < 4:
-        return SecondaryStrategyName.RADIAL, {
-            "auto_secondary_area_km2": 0.0,
-            "auto_secondary_density_per_km2": 0.0,
-            "auto_secondary_reason": "too_few_points",
-        }
-
-    area_km2 = _region_area_km2_from_polygon(polygon_points)
-    if area_km2 <= 0:
-        area_km2 = _region_area_km2_from_points(candidate_points)
-
-    density = len(candidate_points) / max(area_km2, 0.01)
-    strategy = (
-        SecondaryStrategyName.OPENSTREET
-        if density >= density_threshold_per_km2
-        else SecondaryStrategyName.DELAUNAY
+    name, context = auto_select_secondary_strategy(
+        candidate_points=candidate_points,
+        polygon_points=polygon_points,
+        density_threshold_per_km2=density_threshold_per_km2,
     )
-    return strategy, {
-        "auto_secondary_area_km2": round(area_km2, 4),
-        "auto_secondary_density_per_km2": round(density, 2),
-        "auto_secondary_reason": "density_threshold",
-    }
+    name_map = {v.value: v for v in SecondaryStrategyName}
+    return name_map[name], context
 
 
 def _build_area_aware_clusters(payload: ClusterRequest) -> list[GroupModel]:
     if not payload.parcels:
         raise ValueError("Area-aware clustering requires parcels payload.")
-
-    dedicated: list[GroupModel] = []
-    shared_points: list[GeoLocation] = []
-    shared_weights: list[float] = []
-
-    for parcel in payload.parcels:
-        center, area_m2 = _centroid_and_area_m2(parcel.geometry)
-        if area_m2 >= payload.dedicated_transformer_area_m2:
-            dedicated.append(GroupModel(center=center, points=[center]))
-        else:
-            shared_points.append(center)
-            shared_weights.append(max(area_m2, 1.0))
-
-    grouped: list[GroupModel] = []
-    if shared_points:
-        total_area = float(sum(shared_weights))
-        est_clusters = max(
-            1,
-            int(np.ceil(total_area / max(payload.target_area_per_transformer_m2, 1.0))),
-        )
-        est_clusters = max(payload.min_clusters, est_clusters)
-        est_clusters = min(est_clusters, len(shared_points))
-        if payload.max_clusters is not None:
-            est_clusters = min(est_clusters, payload.max_clusters)
-
-        coords = np.array([(p.longitude, p.latitude) for p in shared_points])
-        model = KMeans(n_clusters=est_clusters, random_state=0)
-        model.fit(coords, sample_weight=np.array(shared_weights))
-
-        for idx, center in enumerate(model.cluster_centers_):
-            points = [
-                shared_points[i] for i, label in enumerate(model.labels_) if int(label) == idx
-            ]
-            grouped.append(
-                GroupModel(
-                    center=GeoLocation(float(center[0]), float(center[1])),
-                    points=points,
-                )
-            )
-
-    return [*dedicated, *grouped]
+    return get_area_aware_clusters(
+        payload.parcels,
+        target_area_per_transformer_m2=payload.target_area_per_transformer_m2,
+        dedicated_transformer_area_m2=payload.dedicated_transformer_area_m2,
+        min_clusters=payload.min_clusters,
+        max_clusters=payload.max_clusters,
+    )
 
 
 def _build_capacity_distance_clusters(payload: ClusterRequest) -> list[GroupModel]:
     if not payload.parcels:
         raise ValueError("Capacity-distance clustering requires parcels payload.")
-
     return get_capacity_distance_clusters(
         payload.parcels,
         target_kva_per_transformer=payload.target_kva_per_transformer,
@@ -494,37 +313,7 @@ def _build_capacity_distance_clusters(payload: ClusterRequest) -> list[GroupMode
 def _build_balanced_kmeans_clusters(
     points: list[GeoLocation], num_clusters: int
 ) -> list[GroupModel]:
-    if len(points) < num_clusters:
-        raise ValueError("num_clusters must be <= number of points")
-
-    coords = np.array([(p.longitude, p.latitude) for p in points])
-    model = KMeans(n_clusters=num_clusters, random_state=0)
-    model.fit(coords)
-    centers = [GeoLocation(float(c[0]), float(c[1])) for c in model.cluster_centers_]
-
-    distances = np.linalg.norm(coords[:, None, :] - model.cluster_centers_[None, :, :], axis=2)
-    order = np.argsort(np.min(distances, axis=1))
-
-    max_size = int(np.ceil(len(points) / num_clusters))
-    assignments: list[list[GeoLocation]] = [[] for _ in range(num_clusters)]
-    counts = [0 for _ in range(num_clusters)]
-
-    for idx in order:
-        ranked = np.argsort(distances[idx])
-        for cluster_idx in ranked:
-            cluster_idx = int(cluster_idx)
-            if counts[cluster_idx] < max_size:
-                assignments[cluster_idx].append(points[int(idx)])
-                counts[cluster_idx] += 1
-                break
-
-    groups = []
-    for cluster_idx, cluster_points in enumerate(assignments):
-        if not cluster_points:
-            continue
-        groups.append(GroupModel(center=centers[cluster_idx], points=cluster_points))
-
-    return groups
+    return get_balanced_kmeans_clusters(points, num_clusters)
 
 
 def create_app() -> FastAPI:  # noqa: C901

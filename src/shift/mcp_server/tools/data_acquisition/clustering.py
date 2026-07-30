@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.serializers import serialize_group
 
 
-def register(mcp: FastMCP) -> None:
-    """Register clustering tools on the FastMCP instance."""
+def register(mcp: MCPServer) -> None:
+    """Register clustering tools on the MCPServer instance."""
 
     @mcp.tool()
     def cluster_parcels(

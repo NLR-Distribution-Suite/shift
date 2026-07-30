@@ -1,6 +1,6 @@
 """Tests for graph management, node, edge, and query tools."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.tools.graph import management, nodes, edges, query
 
@@ -8,10 +8,10 @@ from tests.test_mcp_server.conftest import MockContext, parse
 
 
 # ---------------------------------------------------------------------------
-# Register tools on a shared FastMCP instance
+# Register tools on a shared MCPServer instance
 # ---------------------------------------------------------------------------
 
-_mcp = FastMCP("test-graph")
+_mcp = MCPServer("test-graph")
 management.register(_mcp)
 nodes.register(_mcp)
 edges.register(_mcp)

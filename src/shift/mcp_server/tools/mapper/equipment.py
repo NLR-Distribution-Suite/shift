@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
@@ -90,10 +90,10 @@ def _snap_voltage_mapper_to_catalog(graph, catalog, voltage_mapper, phase_mapper
     return TransformerVoltageMapper(graph, models)
 
 
-def register(mcp: FastMCP) -> None:  # noqa: C901
+def register(mcp: MCPServer) -> None:  # noqa: C901
     @mcp.tool()
     def configure_equipment_mapper(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         catalog_path: str,
     ) -> str:
@@ -190,7 +190,7 @@ def register(mcp: FastMCP) -> None:  # noqa: C901
 
     @mcp.tool()
     def get_equipment_mapping(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
     ) -> str:
         """Get equipment assignments for all edges in a distribution graph.

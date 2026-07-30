@@ -5,17 +5,17 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext, GraphMeta
 from shift.mcp_server.serializers import serialize_graph_summary
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def layout_existing_graph(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         candidate_graphs_path: str,
         source_longitude: float,
         source_latitude: float,

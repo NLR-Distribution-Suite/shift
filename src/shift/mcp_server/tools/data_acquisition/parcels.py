@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.serializers import serialize_parcel
 
@@ -130,8 +130,8 @@ def _parse_location(location: str):
     return location
 
 
-def register(mcp: FastMCP) -> None:  # noqa: C901
-    """Register parcel tools on the FastMCP instance."""
+def register(mcp: MCPServer) -> None:  # noqa: C901
+    """Register parcel tools on the MCPServer instance."""
 
     @mcp.tool()
     def set_local_pbf(pbf_path: str) -> str:

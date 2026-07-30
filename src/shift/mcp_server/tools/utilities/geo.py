@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.serializers import serialize_geo_location
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def distance_between_points(
         lon1: float,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sklearn.cluster import KMeans
 import numpy as np
 from pyproj import Geod
@@ -257,3 +259,188 @@ def get_capacity_distance_clusters(  # noqa: C901
         grouped.append(GroupModel(center=centers[i], points=points))
 
     return [*dedicated, *grouped]
+
+
+def get_area_aware_clusters(
+    parcels,
+    *,
+    target_area_per_transformer_m2: float = 5000.0,
+    dedicated_transformer_area_m2: float = 2000.0,
+    min_clusters: int = 1,
+    max_clusters: int | None = None,
+) -> list[GroupModel]:
+    """Cluster parcels by footprint area with dedicated transformers for large parcels.
+
+    Parcels whose geodesic footprint area exceeds ``dedicated_transformer_area_m2``
+    each receive their own transformer group. Remaining parcels are clustered
+    using area-weighted K-means where the number of clusters is derived from
+    the ratio of total shared area to ``target_area_per_transformer_m2``.
+
+    Parameters
+    ----------
+    parcels : Sequence
+        Parcels as dicts or objects exposing ``geometry`` (list of vertices or
+        single point).
+    target_area_per_transformer_m2 : float
+        Target total parcel area served by each shared transformer.
+    dedicated_transformer_area_m2 : float
+        Footprint area at/above which a parcel gets its own transformer.
+    min_clusters : int
+        Minimum number of shared transformer clusters.
+    max_clusters : int | None
+        Maximum number of shared transformer clusters.
+
+    Returns
+    -------
+    list[GroupModel]
+        One group per transformer, dedicated first then shared.
+    """
+    if not parcels:
+        raise ValueError("Area-aware clustering requires parcels.")
+
+    dedicated: list[GroupModel] = []
+    shared_points: list[GeoLocation] = []
+    shared_weights: list[float] = []
+
+    for parcel in parcels:
+        geometry = _parcel_attr(parcel, "geometry")
+        center, area_m2 = centroid_and_area_m2(geometry)
+        if area_m2 >= dedicated_transformer_area_m2:
+            dedicated.append(GroupModel(center=center, points=[center]))
+        else:
+            shared_points.append(center)
+            shared_weights.append(max(area_m2, 1.0))
+
+    grouped: list[GroupModel] = []
+    if shared_points:
+        total_area = float(sum(shared_weights))
+        est_clusters = max(
+            1,
+            int(np.ceil(total_area / max(target_area_per_transformer_m2, 1.0))),
+        )
+        est_clusters = max(min_clusters, est_clusters)
+        est_clusters = min(est_clusters, len(shared_points))
+        if max_clusters is not None:
+            est_clusters = min(est_clusters, max_clusters)
+
+        coords = np.array([(p.longitude, p.latitude) for p in shared_points])
+        model = KMeans(n_clusters=est_clusters, random_state=0)
+        model.fit(coords, sample_weight=np.array(shared_weights))
+
+        for idx, center in enumerate(model.cluster_centers_):
+            points = [
+                shared_points[i] for i, label in enumerate(model.labels_) if int(label) == idx
+            ]
+            grouped.append(
+                GroupModel(
+                    center=GeoLocation(float(center[0]), float(center[1])),
+                    points=points,
+                )
+            )
+
+    return [*dedicated, *grouped]
+
+
+def get_balanced_kmeans_clusters(points: list[GeoLocation], num_clusters: int) -> list[GroupModel]:
+    """Cluster points using balanced K-means with size-constrained assignment.
+
+    Unlike standard K-means (which can produce very uneven cluster sizes), this
+    variant assigns points to the nearest cluster that hasn't reached its maximum
+    size, producing roughly equal-sized groups.
+
+    Parameters
+    ----------
+    points : list[GeoLocation]
+        Geographic locations to cluster.
+    num_clusters : int
+        Number of clusters to produce. Must be <= len(points).
+
+    Returns
+    -------
+    list[GroupModel]
+        Balanced clusters with approximately equal point counts.
+
+    Raises
+    ------
+    ValueError
+        If num_clusters exceeds the number of points.
+    """
+    if len(points) < num_clusters:
+        raise ValueError("num_clusters must be <= number of points")
+
+    coords = np.array([(p.longitude, p.latitude) for p in points])
+    model = KMeans(n_clusters=num_clusters, random_state=0)
+    model.fit(coords)
+    centers = [GeoLocation(float(c[0]), float(c[1])) for c in model.cluster_centers_]
+
+    distances = np.linalg.norm(coords[:, None, :] - model.cluster_centers_[None, :, :], axis=2)
+    order = np.argsort(np.min(distances, axis=1))
+
+    max_size = int(np.ceil(len(points) / num_clusters))
+    assignments: list[list[GeoLocation]] = [[] for _ in range(num_clusters)]
+    counts = [0 for _ in range(num_clusters)]
+
+    for idx in order:
+        ranked = np.argsort(distances[idx])
+        for cluster_idx in ranked:
+            cluster_idx = int(cluster_idx)
+            if counts[cluster_idx] < max_size:
+                assignments[cluster_idx].append(points[int(idx)])
+                counts[cluster_idx] += 1
+                break
+
+    groups = []
+    for cluster_idx, cluster_points in enumerate(assignments):
+        if not cluster_points:
+            continue
+        groups.append(GroupModel(center=centers[cluster_idx], points=cluster_points))
+
+    return groups
+
+
+def estimate_feeder_count(
+    *,
+    parcel_count: int,
+    region_area_km2: float,
+    target_parcels_per_feeder: int = 200,
+    high_density_threshold_per_km2: float = 1000.0,
+    large_region_threshold_km2: float = 5.0,
+    min_feeders: int = 1,
+    max_feeders: int = 10,
+) -> int:
+    """Estimate the number of feeders needed for a region.
+
+    Uses parcel count and regional density heuristics to determine an
+    appropriate feeder count.
+
+    Parameters
+    ----------
+    parcel_count : int
+        Total number of parcels/loads in the region.
+    region_area_km2 : float
+        Area of the service region in square kilometres.
+    target_parcels_per_feeder : int
+        Desired number of parcels per feeder.
+    high_density_threshold_per_km2 : float
+        Density above which an extra feeder is added.
+    large_region_threshold_km2 : float
+        Region size above which an extra feeder is added.
+    min_feeders : int
+        Minimum feeder count.
+    max_feeders : int
+        Maximum feeder count.
+
+    Returns
+    -------
+    int
+        Estimated number of feeders, clamped to [min_feeders, max_feeders].
+    """
+    base = max(1, int(np.ceil(parcel_count / max(1, target_parcels_per_feeder))))
+    density = parcel_count / max(region_area_km2, 0.01)
+
+    if density > high_density_threshold_per_km2:
+        base += 1
+    if region_area_km2 > large_region_threshold_km2:
+        base += 1
+
+    return max(min_feeders, min(max_feeders, base))

@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import re
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
@@ -40,10 +40,10 @@ def _extract_section(content: str, section: str) -> str | None:
     return "\n".join(section_lines) if section_lines else None
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def list_docs(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
     ) -> str:
         """List all available NREL-shift documentation files.
 
@@ -64,7 +64,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def read_doc(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         doc_name: str,
         section: str = "",
     ) -> str:

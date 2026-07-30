@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
@@ -30,10 +30,10 @@ def _count_components(system, component_type) -> int:
         return 0
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def build_system(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         system_name: str,
         graph_id: str,
     ) -> str:
@@ -97,7 +97,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def get_system_summary(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         system_name: str,
     ) -> str:
         """Get a summary of a built distribution system.
@@ -149,7 +149,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def list_systems(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
     ) -> str:
         """List all built distribution systems in the current session.
 
