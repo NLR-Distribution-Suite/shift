@@ -191,7 +191,6 @@ def parcels_from_pbf(  # noqa: C901
     SHIFT web UI's ``/api/parcels/fetch-local`` offline path and requires a PBF
     configured via :func:`shift.openstreet_roads.set_local_pbf`.
     """
-    import xml.etree.ElementTree as ET
 
     from shapely.geometry import Point as _SPoint, Polygon as _SPolygon
 
@@ -221,7 +220,9 @@ def parcels_from_pbf(  # noqa: C901
 
     xml_path = extract_from_pbf(bbox)
     try:
-        root = ET.parse(xml_path).getroot()
+        import defusedxml.ElementTree as _SafeET
+
+        root = _SafeET.parse(xml_path).getroot()
 
         nodes_map: dict[str, tuple[float, float]] = {}
         for node_el in root.findall("node"):

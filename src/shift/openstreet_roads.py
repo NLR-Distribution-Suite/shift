@@ -143,7 +143,7 @@ def extract_from_pbf(
         raise ValueError("No local PBF configured. Call set_local_pbf() first.")
 
     if output_path is None:
-        output_path = tempfile.mktemp(suffix=".osm")
+        output_path = tempfile.mkstemp(suffix=".osm")[1]
 
     min_lon, min_lat, max_lon, max_lat = bbox
     bbox_str = f"{min_lon},{min_lat},{max_lon},{max_lat}"

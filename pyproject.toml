@@ -32,6 +32,7 @@ dependencies = [
   "grid-data-models==2.3.7",
   "importlib-metadata",
   "loguru",
+  "defusedxml",
 ]
 
 [project.optional-dependencies]

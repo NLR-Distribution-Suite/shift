@@ -997,8 +997,8 @@ def create_app() -> FastAPI:  # noqa: C901
                     import osmnx as ox
 
                     road_graph = ox.graph_from_xml(xml_path).to_undirected()
-                except Exception:
-                    pass
+                except Exception:  # noqa: BLE001
+                    road_graph = None
                 Path(xml_path).unlink(missing_ok=True)
 
             if road_graph is None:
@@ -1110,7 +1110,7 @@ def create_app() -> FastAPI:  # noqa: C901
             xml_path = extract_from_pbf(bbox)
 
             # Parse buildings from XML (handle broken relations gracefully)
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
 
             tree = ET.parse(xml_path)
             root = tree.getroot()

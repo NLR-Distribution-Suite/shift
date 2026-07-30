@@ -261,7 +261,7 @@ def register(mcp: MCPServer) -> None:  # noqa: C901
                         }
                     )
                 except Exception:  # noqa: BLE001
-                    pass  # PBF extraction failed; fall through to Overpass.
+                    pass  # noqa: B110 — PBF extraction failed; fall through to Overpass.
 
             parcels, endpoint_used, endpoint_errors, debug_log = _fetch_with_overpass_fallback(
                 geo_points,
