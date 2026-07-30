@@ -35,8 +35,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pre-commit", "pytest", "pytest-cov", "pytest-mock", "ruff==0.15.5", "shapely"]
-doc = ["jupyter-book<2", "myst-parser", "autodoc_pydantic"]
+dev = ["pre-commit", "pytest", "pytest-cov", "pytest-mock", "ruff==0.15.13", "shapely"]
+doc = ["jupyter-book<3", "myst-parser", "autodoc_pydantic"]
 mcp = ["mcp[cli]>=1.2.0", "pyyaml"]
 
 [project.scripts]
