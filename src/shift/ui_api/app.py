@@ -316,6 +316,45 @@ def _build_balanced_kmeans_clusters(
     return get_balanced_kmeans_clusters(points, num_clusters)
 
 
+def _load_road_graph_for_snap(clusters: list[dict], polygon: list[dict]):
+    """Load a road network graph for snapping, trying local PBF then Overpass."""
+    from shift.openstreet_roads import extract_from_pbf, get_local_pbf, get_road_network
+    from fastapi import HTTPException
+
+    road_graph = None
+    if get_local_pbf() and polygon and len(polygon) >= 3:
+        lons = [p["longitude"] for p in polygon]
+        lats = [p["latitude"] for p in polygon]
+        bbox = (min(lons), min(lats), max(lons), max(lats))
+        xml_path = extract_from_pbf(bbox)
+        try:
+            import osmnx as ox
+
+            road_graph = ox.graph_from_xml(xml_path).to_undirected()
+        except Exception:  # noqa: BLE001
+            road_graph = None
+        Path(xml_path).unlink(missing_ok=True)
+
+    if road_graph is None:
+        try:
+            all_pts = [
+                GeoLocation(c["center"]["longitude"], c["center"]["latitude"]) for c in clusters
+            ]
+            from shift.utils.polygon_from_points import get_polygon_from_points
+
+            poly = get_polygon_from_points(all_pts, Distance(50, "m"))
+            road_graph = get_road_network(poly, reduce_to_mst=False)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="No road data available (local PBF or Overpass required).",
+            ) from exc
+
+    if not road_graph or not road_graph.nodes:
+        raise HTTPException(status_code=400, detail="Empty road network for this area.")
+    return road_graph
+
+
 def create_app() -> FastAPI:  # noqa: C901
     app = FastAPI(title="SHIFT UI API", version="0.1.0")
     state = UiSessionState()
@@ -973,10 +1012,9 @@ def create_app() -> FastAPI:  # noqa: C901
         return {"success": True, "pbf_path": path}
 
     @app.post("/api/clusters/snap-to-roads")
-    def snap_clusters_to_roads(payload: dict) -> dict:  # noqa: C901
+    def snap_clusters_to_roads(payload: dict) -> dict:
         """Snap cluster centers to nearest road nodes using local PBF."""
-        from shift.openstreet_roads import extract_from_pbf, get_local_pbf, get_road_network
-        from shift.utils.split_network_edges import get_distance_between_points
+        from shift.utils.snap_to_roads import snap_cluster_to_road
 
         clusters = payload.get("clusters", [])
         threshold_m = payload.get("threshold_m", 50.0)
@@ -986,92 +1024,46 @@ def create_app() -> FastAPI:  # noqa: C901
             raise HTTPException(status_code=400, detail="No clusters provided.")
 
         try:
-            # Get road network: try local PBF, fall back to Overpass
-            road_graph = None
-            if get_local_pbf() and polygon and len(polygon) >= 3:
-                lons = [p["longitude"] for p in polygon]
-                lats = [p["latitude"] for p in polygon]
-                bbox = (min(lons), min(lats), max(lons), max(lats))
-                xml_path = extract_from_pbf(bbox)
-                try:
-                    import osmnx as ox
+            road_graph = _load_road_graph_for_snap(clusters, polygon)
 
-                    road_graph = ox.graph_from_xml(xml_path).to_undirected()
-                except Exception:  # noqa: BLE001
-                    road_graph = None
-                Path(xml_path).unlink(missing_ok=True)
-
-            if road_graph is None:
-                # Try Overpass
-                try:
-                    all_pts = [
-                        GeoLocation(c["center"]["longitude"], c["center"]["latitude"])
-                        for c in clusters
-                    ]
-                    from shift.utils.polygon_from_points import get_polygon_from_points
-
-                    poly = get_polygon_from_points(all_pts, Distance(50, "m"))
-                    road_graph = get_road_network(poly, reduce_to_mst=False)
-                except Exception:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No road data available (local PBF or Overpass required).",
-                    )
-
-            if not road_graph or not road_graph.nodes:
-                raise HTTPException(status_code=400, detail="Empty road network for this area.")
-
-            # Build edge segments for projection
-            edge_segments = []
-            for u, v in list(road_graph.edges()):
-                ux, uy = road_graph.nodes[u]["x"], road_graph.nodes[u]["y"]
-                vx, vy = road_graph.nodes[v]["x"], road_graph.nodes[v]["y"]
-                edge_segments.append((ux, uy, vx, vy))
-
-            from shift.graph.prsgb import _project_point_to_segment
+            edge_segments = [
+                (
+                    road_graph.nodes[u]["x"],
+                    road_graph.nodes[u]["y"],
+                    road_graph.nodes[v]["x"],
+                    road_graph.nodes[v]["y"],
+                )
+                for u, v in road_graph.edges()
+            ]
 
             snapped = []
             snap_count = 0
             for cluster in clusters:
                 center = cluster["center"]
-                cx, cy = center["longitude"], center["latitude"]
-                center_geo = GeoLocation(cx, cy)
+                center_geo = GeoLocation(center["longitude"], center["latitude"])
                 parcel_points = [
                     GeoLocation(p["longitude"], p["latitude"]) for p in cluster.get("points", [])
                 ]
 
-                # Project center onto every road edge, find closest
-                candidates = []
-                for ax, ay, bx, by in edge_segments:
-                    px, py, _ = _project_point_to_segment(cx, cy, ax, ay, bx, by)
-                    proj_geo = GeoLocation(px, py)
-                    dist = get_distance_between_points(center_geo, proj_geo).to("m").magnitude
-                    if dist <= threshold_m:
-                        if parcel_points:
-                            total_parcel = sum(
-                                get_distance_between_points(proj_geo, pp).to("m").magnitude
-                                for pp in parcel_points
-                            )
-                        else:
-                            total_parcel = dist
-                        candidates.append((px, py, dist, total_parcel))
-
-                if not candidates:
-                    snapped.append({**cluster, "snapped": False, "snap_distance_m": 999.0})
-                    continue
-
-                # Pick the projection minimizing total parcel distance
-                best = min(candidates, key=lambda c: c[3])
-                new_center = {"longitude": float(best[0]), "latitude": float(best[1])}
-                snapped.append(
-                    {
-                        **cluster,
-                        "center": new_center,
-                        "snapped": True,
-                        "snap_distance_m": round(best[2], 1),
-                    }
+                result = snap_cluster_to_road(
+                    center_geo, parcel_points, edge_segments, threshold_m
                 )
-                snap_count += 1
+                if result is None:
+                    snapped.append({**cluster, "snapped": False, "snap_distance_m": 999.0})
+                else:
+                    new_center = {
+                        "longitude": result["longitude"],
+                        "latitude": result["latitude"],
+                    }
+                    snapped.append(
+                        {
+                            **cluster,
+                            "center": new_center,
+                            "snapped": True,
+                            "snap_distance_m": result["snap_distance_m"],
+                        }
+                    )
+                    snap_count += 1
 
             return {
                 "success": True,

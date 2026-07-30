@@ -337,7 +337,7 @@ class TrunkBranchStrategy(SecondaryNetworkStrategy):
         self.buffer = buffer
         self.max_trunks = max_trunks
 
-    def build(self, group: GroupModel) -> nx.Graph:  # noqa: C901
+    def build(self, group: GroupModel) -> nx.Graph:
         sec_graph = nx.Graph()
 
         if len(group.points) == 1:
@@ -363,10 +363,13 @@ class TrunkBranchStrategy(SecondaryNetworkStrategy):
             pass
 
         if road_network is None or not road_network.nodes:
-            # Fall back to geometric trunk-branch (no roads)
             return self._build_geometric_trunk_branch(group)
 
-        # --- Road-based trunk-and-branch ---
+        return self._build_road_trunk_branch(group, road_network)
+
+    def _build_road_trunk_branch(self, group: GroupModel, road_network: nx.Graph) -> nx.Graph:  # noqa: C901
+        """Build a trunk-and-branch secondary using road geometry."""
+        sec_graph = nx.Graph()
         # 1. Find transformer node on road
         center_road_nodes = _get_nearest_nodes_from_graph(road_network, [group.center])
         tr_road_node = center_road_nodes[0]

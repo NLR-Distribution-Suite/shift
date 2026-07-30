@@ -222,7 +222,86 @@ def _filter_graph_by_polygon(graph: nx.Graph, polygon) -> nx.Graph:
     return graph
 
 
-def get_road_network(  # noqa: C901
+def _try_local_pbf_road_network(location, max_distance, reduce_to_mst) -> nx.Graph | None:
+    """Attempt to load a road network from local PBF. Returns None on failure."""
+    if not _LOCAL_PBF_PATH:
+        return None
+
+    try:
+        if isinstance(location, Polygon):
+            bounds = location.bounds
+        elif isinstance(location, list):
+            lons = [pt[0] if isinstance(pt, (tuple, list)) else pt.longitude for pt in location]
+            lats = [pt[1] if isinstance(pt, (tuple, list)) else pt.latitude for pt in location]
+            bounds = (min(lons), min(lats), max(lons), max(lats))
+        elif isinstance(location, GeoLocation):
+            d = max_distance.to("m").magnitude / 111139
+            bounds = (
+                location.longitude - d,
+                location.latitude - d,
+                location.longitude + d,
+                location.latitude + d,
+            )
+        else:
+            return None
+
+        xml_path = extract_from_pbf(bounds)
+        try:
+            graph = get_road_network_from_xml(xml_path, reduce_to_mst)
+            logger.debug(f"Road network loaded from local PBF ({graph.number_of_nodes()} nodes)")
+            return graph
+        finally:
+            import os
+
+            if os.path.exists(xml_path):
+                os.unlink(xml_path)
+    except Exception as exc:
+        logger.debug(f"Local PBF road extraction failed: {exc}, falling back to Overpass")
+        return None
+
+
+def _fetch_road_graph_by_location(location, max_distance):
+    """Fetch road graph from OSM based on location type."""
+    if isinstance(location, str):
+        return ox.graph_from_address(
+            location, dist=max_distance.to("m"), dist_type=DIST_TYPE, network_type=NETWORK_TYPE
+        )
+    elif isinstance(location, GeoLocation):
+        return ox.graph_from_point(
+            list(reversed(location)),
+            dist=max_distance.to("m").magnitude,
+            dist_type=DIST_TYPE,
+            network_type=NETWORK_TYPE,
+        )
+    elif isinstance(location, list):
+        return ox.graph_from_polygon(Polygon(location), network_type=NETWORK_TYPE)
+    elif isinstance(location, Polygon):
+        return ox.graph_from_polygon(location, network_type=NETWORK_TYPE)
+    else:
+        msg = f"Invalid {location=} passed."
+        raise InvalidInputError(msg)
+
+
+def _filter_to_public_roads(graph: nx.Graph) -> nx.Graph:
+    """Remove non-public road edges and resulting isolate nodes from graph."""
+    edges_to_remove = []
+    for u, v, data in graph.edges(data=True):
+        highway = data.get("highway", "")
+        if isinstance(highway, list):
+            if not any(h in _PUBLIC_ROAD_TYPES for h in highway):
+                edges_to_remove.append((u, v))
+        elif highway not in _PUBLIC_ROAD_TYPES:
+            edges_to_remove.append((u, v))
+
+    if edges_to_remove:
+        graph.remove_edges_from(edges_to_remove)
+        isolates = list(nx.isolates(graph))
+        graph.remove_nodes_from(isolates)
+        logger.debug(f"Filtered to public roads: removed {len(edges_to_remove)} non-public edges")
+    return graph
+
+
+def get_road_network(
     location: str | GeoLocation | list[GeoLocation] | Polygon,
     max_distance: Distance = Distance(500, "m"),
     reduce_to_mst: bool = True,
@@ -259,81 +338,16 @@ def get_road_network(  # noqa: C901
     logger.debug(f"Attempting to fecth road network for {location}")
 
     # Try local PBF first if configured
-    if _LOCAL_PBF_PATH:
-        try:
-            if isinstance(location, Polygon):
-                bounds = location.bounds  # (minx, miny, maxx, maxy)
-            elif isinstance(location, list):
-                lons = [
-                    pt[0] if isinstance(pt, (tuple, list)) else pt.longitude for pt in location
-                ]
-                lats = [pt[1] if isinstance(pt, (tuple, list)) else pt.latitude for pt in location]
-                bounds = (min(lons), min(lats), max(lons), max(lats))
-            elif isinstance(location, GeoLocation):
-                d = max_distance.to("m").magnitude / 111139  # rough deg
-                bounds = (
-                    location.longitude - d,
-                    location.latitude - d,
-                    location.longitude + d,
-                    location.latitude + d,
-                )
-            else:
-                bounds = None
+    pbf_result = _try_local_pbf_road_network(location, max_distance, reduce_to_mst)
+    if pbf_result is not None:
+        return pbf_result
 
-            if bounds:
-                xml_path = extract_from_pbf(bounds)
-                try:
-                    graph = get_road_network_from_xml(xml_path, reduce_to_mst)
-                    logger.debug(
-                        f"Road network loaded from local PBF ({graph.number_of_nodes()} nodes)"
-                    )
-                    return graph
-                finally:
-                    import os
-
-                    os.unlink(xml_path) if os.path.exists(xml_path) else None
-        except Exception as exc:
-            logger.debug(f"Local PBF road extraction failed: {exc}, falling back to Overpass")
-
-    def _fetch():
-        if isinstance(location, str):
-            return ox.graph_from_address(
-                location, dist=max_distance.to("m"), dist_type=DIST_TYPE, network_type=NETWORK_TYPE
-            )
-        elif isinstance(location, GeoLocation):
-            return ox.graph_from_point(
-                list(reversed(location)),
-                dist=max_distance.to("m").magnitude,
-                dist_type=DIST_TYPE,
-                network_type=NETWORK_TYPE,
-            )
-        elif isinstance(location, list):
-            return ox.graph_from_polygon(Polygon(location), network_type=NETWORK_TYPE)
-        elif isinstance(location, Polygon):
-            return ox.graph_from_polygon(location, network_type=NETWORK_TYPE)
-        else:
-            msg = f"Invalid {location=} passed."
-            raise InvalidInputError(msg)
-
-    graph = _fetch_graph_with_failover(_fetch)
+    graph = _fetch_graph_with_failover(
+        lambda: _fetch_road_graph_by_location(location, max_distance)
+    )
 
     undirected = graph.to_undirected()
-
-    # Filter to public road types only
-    edges_to_remove = []
-    for u, v, data in undirected.edges(data=True):
-        highway = data.get("highway", "")
-        if isinstance(highway, list):
-            if not any(h in _PUBLIC_ROAD_TYPES for h in highway):
-                edges_to_remove.append((u, v))
-        elif highway not in _PUBLIC_ROAD_TYPES:
-            edges_to_remove.append((u, v))
-
-    if edges_to_remove:
-        undirected.remove_edges_from(edges_to_remove)
-        isolates = list(nx.isolates(undirected))
-        undirected.remove_nodes_from(isolates)
-        logger.debug(f"Filtered to public roads: removed {len(edges_to_remove)} non-public edges")
+    undirected = _filter_to_public_roads(undirected)
 
     if reduce_to_mst:
         return nx.minimum_spanning_tree(undirected)
