@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.state import AppContext
 
@@ -113,8 +113,10 @@ def _index_docs(project_root: Path) -> tuple[dict[str, str], dict[str, str]]:
 
 
 @asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+async def app_lifespan(server: MCPServer) -> AsyncIterator[AppContext]:
     """Initialise session state: load config, index docs, yield context."""
+    from shift.mcp_server.resources.docs import set_app_context
+
     project_root = Path(__file__).resolve().parent.parent
     docs_index, docs_descriptions = _index_docs(project_root)
 
@@ -122,17 +124,18 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     ctx.docs_index = docs_index
     ctx.docs_descriptions = docs_descriptions
 
+    set_app_context(ctx)
     yield ctx
 
 
 # ---------------------------------------------------------------------------
-# Build the FastMCP application
+# Build the MCPServer application
 # ---------------------------------------------------------------------------
 
 
-def create_server() -> FastMCP:
-    """Create and configure the FastMCP server instance."""
-    mcp = FastMCP(
+def create_server() -> MCPServer:
+    """Create and configure the MCPServer server instance."""
+    mcp = MCPServer(
         "nrel-shift",
         instructions=(
             "NREL-shift MCP server for building synthetic power distribution "
@@ -145,7 +148,15 @@ def create_server() -> FastMCP:
 
     # -- Register tool modules -------------------------------------------------
     from shift.mcp_server.tools.data_acquisition import parcels, roads, clustering
-    from shift.mcp_server.tools.graph import management, nodes, edges, query, builder
+    from shift.mcp_server.tools.graph import (
+        management,
+        nodes,
+        edges,
+        query,
+        builder,
+        route_existing,
+        layout_existing,
+    )
     from shift.mcp_server.tools.mapper import phase, voltage, equipment
     from shift.mcp_server.tools.system import builder as sys_builder, export
     from shift.mcp_server.tools.utilities import geo, network, nearest
@@ -160,6 +171,8 @@ def create_server() -> FastMCP:
     edges.register(mcp)
     query.register(mcp)
     builder.register(mcp)
+    route_existing.register(mcp)
+    layout_existing.register(mcp)
 
     phase.register(mcp)
     voltage.register(mcp)

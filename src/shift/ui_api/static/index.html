@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHIFT Designer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260717-3" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NREL SHIFT</p>
+        <h1>Distribution Network Studio</h1>
+      </div>
+      <div class="status" id="healthStatus">Checking API...</div>
+    </header>
+
+    <main class="layout">
+      <section class="card controls">
+        <label>Local PBF file (optional)
+          <input id="qPbfPath" type="text" value="/Users/alatif/Documents/GitHub/shift/.dump/colorado-260720.osm.pbf" />
+        </label>
+        <button id="qConfigPbfBtn" type="button">Set PBF</button>
+        <p class="small" id="qPbfStatus">PBF not configured</p>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button id="modeAdvancedBtn" class="mode-btn active" type="button">Advanced</button>
+          <button id="modeQuickBtn" class="mode-btn" type="button">Quick Build</button>
+        </div>
+
+        <!-- ===== QUICK BUILD MODE ===== -->
+        <div id="quickPanel" style="display:none">
+          <h2>Quick Build</h2>
+          <p class="small">Draw polygon, pick source, configure transformer → one-click GDM model.</p>
+          <div class="icon-action-row">
+            <button id="qPolygonStartBtn" type="button" class="icon-btn" aria-label="Start polygon" title="Start polygon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4z"></path><path d="M14 5h6v6h-6z"></path><path d="M9 10l6 0"></path><path d="M10 16l2 2 4-4"></path></svg>
+            </button>
+            <button id="qPolygonFinishBtn" type="button" class="icon-btn" aria-label="Close polygon" title="Close polygon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l8 2 8-2"></path><path d="M4 6v10l8 2 8-2V6"></path><path d="M10 12l2 2 4-4"></path></svg>
+            </button>
+            <button id="qPolygonClearBtn" type="button" class="icon-btn" aria-label="Clear polygon" title="Clear polygon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+            </button>
+            <button id="qPickSourceBtn" type="button" class="icon-btn" aria-label="Pick source" title="Pick source from map">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+            </button>
+          </div>
+          <p class="small" id="qStatus">Draw polygon, then pick source</p>
+          <label>System name <input id="qSystemName" type="text" value="my_feeder" /></label>
+          <label>Transformer type
+            <select id="qTransformerType">
+              <option value="THREE_PHASE">THREE_PHASE</option>
+              <option value="SINGLE_PHASE">SINGLE_PHASE</option>
+              <option value="SPLIT_PHASE">SPLIT_PHASE</option>
+            </select>
+          </label>
+          <label>Transformer capacity (kVA) <input id="qTransformerKva" type="number" value="500" min="1" /></label>
+          <label>Primary voltage (kV) <input id="qPrimaryKv" type="number" value="12.47" min="0.1" step="0.01" /></label>
+          <label>Secondary voltage (kV) <input id="qSecondaryKv" type="number" value="0.48" min="0.1" step="0.01" /></label>
+          <label>Catalog path (optional) <input id="qCatalogPath" type="text" value="/Users/alatif/Documents/GitHub/shift/tests/models/p1rhs7_1247.json" placeholder="path to model.json" /></label>
+          <label>Available catalog transformer settings
+            <select id="qTransformerOptionSelect">
+              <option value="">Load catalog options...</option>
+            </select>
+          </label>
+          <label>
+            <input id="qAutoFixAfterBuild" type="checkbox" checked />
+            Run iterative power-flow fix after build
+          </label>
+          <label>Power-flow solver
+            <select id="qFixSolverSelect">
+              <option value="ldf">ldf</option>
+              <option value="ac">ac</option>
+            </select>
+          </label>
+          <label>Fix iterations per pass <input id="qFixMaxIterationsInput" type="number" value="10" min="1" max="100" /></label>
+          <label>Max frontend fix passes <input id="qFixPassesInput" type="number" value="3" min="1" max="20" /></label>
+          <label>Voltage min (pu) <input id="qFixVmMinInput" type="number" value="0.95" min="0.5" max="1.2" step="0.001" /></label>
+          <label>Voltage max (pu) <input id="qFixVmMaxInput" type="number" value="1.05" min="0.8" max="1.5" step="0.001" /></label>
+          <label>Impedance preset
+            <select id="qFixImpedancePresetSelect">
+              <option value="0.95">Conservative (0.95)</option>
+              <option value="0.90" selected>Balanced (0.90)</option>
+              <option value="0.85">Aggressive (0.85)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label>Impedance reduction factor (per pass) <input id="qFixImpedanceReductionInput" type="number" value="0.90" min="0.50" max="0.99" step="0.01" /></label>
+          <button id="quickBuildBtn">Build GDM System</button>
+          <button id="qFixViolationsBtn" style="display:none">Run Iterative Fix (gdm-flow)</button>
+          <button id="qDownloadFixedBundleBtn" style="display:none">Download Latest Fixed Bundle</button>
+        </div>
+
+        <!-- ===== ADVANCED MODE ===== -->
+        <div id="advancedPanel">
+        <h2>1. Region + Parcels</h2>
+        <div class="icon-action-row">
+          <button
+            id="polygonStartBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="Start polygon"
+            title="Start polygon"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h6v6H4z"></path>
+              <path d="M14 5h6v6h-6z"></path>
+              <path d="M9 10l6 0"></path>
+              <path d="M10 16l2 2 4-4"></path>
+            </svg>
+          </button>
+          <button
+            id="polygonFinishBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="Close polygon"
+            title="Close polygon"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6l8 2 8-2"></path>
+              <path d="M4 6v10l8 2 8-2V6"></path>
+              <path d="M10 12l2 2 4-4"></path>
+            </svg>
+          </button>
+          <button
+            id="polygonClearBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="Clear polygon"
+            title="Clear polygon"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 6h18"></path>
+              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+            </svg>
+          </button>
+        </div>
+        <p class="small" id="polygonStatus">Polygon: 0 points</p>
+        <button id="fetchParcelsBtn">Fetch Parcels</button>
+
+        <h2>2. Clustering</h2>
+        <label>
+          Clustering strategy
+          <select id="clusterStrategySelect"></select>
+        </label>
+        <label>
+          Network balance mode
+          <select id="clusterBalanceModeSelect"></select>
+        </label>
+        <label>
+          Number of clusters
+          <input id="clusterCountInput" type="number" value="5" min="1" />
+        </label>
+        <p class="small" id="clusterControlHint"></p>
+        <label>
+          Target area per transformer (sq ft)
+          <input id="targetAreaInput" type="number" value="54000" min="1" />
+        </label>
+        <label>
+          Dedicated transformer threshold (sq ft)
+          <input id="dedicatedAreaInput" type="number" value="22000" min="1" />
+        </label>
+        <label>
+          Target transformer loading (kVA)
+          <input id="targetKvaInput" type="number" value="75" min="1" />
+        </label>
+        <label>
+          Dedicated transformer threshold (kVA)
+          <input id="dedicatedLoadInput" type="number" value="150" min="1" />
+        </label>
+        <label>
+          Max secondary reach (ft)
+          <input id="maxSecondaryLengthInput" type="number" value="400" min="1" />
+        </label>
+        <button id="clusterBtn">Build Clusters</button>
+        <label>
+          Snap threshold (m)
+          <input id="snapThresholdInput" type="number" value="50" min="1" max="200" />
+        </label>
+        <button id="snapToRoadsBtn">Snap to Roads</button>
+
+        <h2>3. Build Graph</h2>
+        <div class="icon-action-row">
+          <button
+            id="pickSourceBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="Pick source from map"
+            title="Pick source from map"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"></path>
+              <circle cx="12" cy="10" r="2.5"></circle>
+            </svg>
+          </button>
+          <button
+            id="resetSourceBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="Reset source"
+            title="Reset source"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 4v5h5"></path>
+            </svg>
+          </button>
+        </div>
+        <p class="small" id="sourceStatus">Source: -97.33000, 32.75000</p>
+        <label>
+          Network type
+          <select id="networkTypeSelect"></select>
+        </label>
+        <label>
+          Routing strategy override
+          <select id="routingSelect"></select>
+        </label>
+        <label>
+          Crossing penalty (1=none, 2-5=penalize crossings)
+          <input id="crossingPenaltyInput" type="number" value="1.0" min="1" max="10" step="0.5" />
+        </label>
+        <label>
+          Secondary strategy override
+          <select id="secondarySelect"></select>
+        </label>
+        <label>
+          Auto secondary density threshold (parcels/km2)
+          <input
+            id="autoSecondaryDensityThresholdInput"
+            type="number"
+            value="300"
+            min="1"
+            step="1"
+          />
+        </label>
+        <label>
+          Primary buffer (ft)
+          <input id="bufferInput" type="number" value="66" min="1" max="50000" />
+        </label>
+        <label>
+          Secondary buffer (ft)
+          <input id="secondaryBufferInput" type="number" value="164" min="1" max="50000" />
+        </label>
+        <label>
+          Mesh spacing (ft)
+          <input id="meshSpacingInput" type="number" value="164" min="5" max="10000" />
+        </label>
+        <button id="buildGraphBtn">Build Graph</button>
+        <div id="graphSummaryBar" class="summary-bar" style="display:none"></div>
+
+        <h2>4. Multi-Feeder Auto Build</h2>
+        <label>
+          Target parcels per feeder
+          <input id="targetParcelsPerFeederInput" type="number" value="80" min="1" />
+        </label>
+        <label>
+          Parcels per transformer group
+          <input id="parcelsPerTransformerInput" type="number" value="10" min="1" />
+        </label>
+        <label>
+          Min feeders
+          <input id="minFeedersInput" type="number" value="1" min="1" />
+        </label>
+        <label>
+          Max feeders
+          <input id="maxFeedersInput" type="number" value="8" min="1" />
+        </label>
+        <button id="autoBuildFeedersBtn">Auto Build Feeders</button>
+
+        <h2>5. Build GDM System</h2>
+        <label>
+          System name
+          <input id="systemNameInput" type="text" value="my_feeder" />
+        </label>
+        <label>
+          Transformer type
+          <select id="transformerTypeSelect">
+            <option value="THREE_PHASE">THREE_PHASE</option>
+            <option value="SINGLE_PHASE">SINGLE_PHASE</option>
+            <option value="SPLIT_PHASE">SPLIT_PHASE</option>
+          </select>
+        </label>
+        <label>
+          Transformer capacity (kVA)
+          <input id="transformerCapacityInput" type="number" value="500" min="1" />
+        </label>
+        <label>
+          Primary voltage (kV)
+          <input id="primaryVoltageInput" type="number" value="12.47" min="0.1" step="0.01" />
+        </label>
+        <label>
+          Secondary voltage (kV)
+          <input id="secondaryVoltageInput" type="number" value="0.48" min="0.1" step="0.01" />
+        </label>
+        <label>
+          Equipment catalog path
+          <input id="catalogPathInput" type="text" value="/Users/alatif/Documents/GitHub/shift/tests/models/p1rhs7_1247.json" placeholder="(optional) path to model.json" />
+        </label>
+        <label>
+          Available catalog transformer settings
+          <select id="transformerOptionSelect">
+            <option value="">Load catalog options...</option>
+          </select>
+        </label>
+        <button id="buildSystemBtn">Build & Export System</button>
+        <label>
+          Power-flow solver
+          <select id="fixSolverSelect">
+            <option value="ldf">ldf</option>
+            <option value="ac">ac</option>
+          </select>
+        </label>
+        <label>
+          Fix iterations per pass
+          <input id="fixMaxIterationsInput" type="number" value="10" min="1" max="100" />
+        </label>
+        <label>
+          Max frontend fix passes
+          <input id="fixPassesInput" type="number" value="3" min="1" max="20" />
+        </label>
+        <label>
+          Voltage min (pu)
+          <input id="fixVmMinInput" type="number" value="0.95" min="0.5" max="1.2" step="0.001" />
+        </label>
+        <label>
+          Voltage max (pu)
+          <input id="fixVmMaxInput" type="number" value="1.05" min="0.8" max="1.5" step="0.001" />
+        </label>
+        <label>
+          Impedance preset
+          <select id="fixImpedancePresetSelect">
+            <option value="0.95">Conservative (0.95)</option>
+            <option value="0.90" selected>Balanced (0.90)</option>
+            <option value="0.85">Aggressive (0.85)</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+        <label>
+          Impedance reduction factor (per pass)
+          <input id="fixImpedanceReductionInput" type="number" value="0.90" min="0.50" max="0.99" step="0.01" />
+        </label>
+        <label>
+          <input id="autoFixAfterBuild" type="checkbox" checked />
+          Run iterative power-flow fix after build
+        </label>
+        <button id="fixViolationsBtn" style="display:none">Run Iterative Fix (gdm-flow)</button>
+        <button id="downloadFixedBundleBtn" style="display:none">Download Latest Fixed Bundle</button>
+        </div><!-- /advancedPanel -->
+      </section>
+
+      <section class="card map-panel">
+        <div class="map-header">
+          <h2>Map Selection</h2>
+          <p>Click map to set source location. Use polygon buttons to draw parcel ROI.</p>
+        </div>
+        <div id="map"></div>
+      </section>
+
+      <section class="card output">
+        <div class="output-header">
+          <h2>Output</h2>
+          <div class="output-actions">
+            <button
+              id="copyOutputBtn"
+              type="button"
+              class="icon-btn"
+              aria-label="Copy output"
+              title="Copy output"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+                <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+            <button
+              id="clearOutputBtn"
+              type="button"
+              class="icon-btn"
+              aria-label="Clear output"
+              title="Clear output"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                <path d="M10 11v6"></path>
+                <path d="M14 11v6"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <pre id="output"></pre>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="./app.js?v=20260721-15"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../gdm-flow"
+		},
+		{
+			"path": "../../../PG-DiGress"
+		},
+		{
+			"path": "../../../erad"
+		},
+		{
+			"path": "../../../GATES-APP-DIIST-USECASE"
+		},
+		{
+			"path": "../../../erad_plugins"
+		}
+	],
+	"settings": {}
+}

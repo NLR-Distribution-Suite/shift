@@ -1,6 +1,9 @@
 name: Pytest
 
-on: pull_request
+on:
+  push:
+    branches: [feature/ui]
+  pull_request:
 
 jobs:
   test:

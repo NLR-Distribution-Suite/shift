@@ -1,5 +1,6 @@
 from gdm.distribution.components import (
     DistributionTransformer,
+    DistributionBranchBase,
     MatrixImpedanceBranch,
     SequenceImpedanceBranch,
     GeometryBranch,
@@ -18,6 +19,7 @@ from gdm.distribution.equipment import (
 )
 
 EQUIPMENT_TO_CLASS_TYPE = {
+    DistributionBranchBase: MatrixImpedanceBranchEquipment,
     MatrixImpedanceBranch: MatrixImpedanceBranchEquipment,
     MatrixImpedanceFuse: MatrixImpedanceFuseEquipment,
     MatrixImpedanceRecloser: MatrixImpedanceRecloserEquipment,

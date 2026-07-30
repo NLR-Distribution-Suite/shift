@@ -1,0 +1,2761 @@
+{
+  "source": "OSMnx Overpass cache (Fort Worth, TX)",
+  "count": 61,
+  "bbox": {
+    "min_lon": -97.3357459,
+    "max_lon": -97.3300065,
+    "min_lat": 32.7505136,
+    "max_lat": 32.7557241
+  },
+  "parcels": [
+    {
+      "name": "parcel_0",
+      "building_type": "garage",
+      "city": "",
+      "state": "",
+      "postal_address": "Taylor Street",
+      "geometry": [
+        {
+          "longitude": -97.3321474,
+          "latitude": 32.7508627
+        },
+        {
+          "longitude": -97.3322912,
+          "latitude": 32.751405
+        },
+        {
+          "longitude": -97.3324065,
+          "latitude": 32.7513485
+        },
+        {
+          "longitude": -97.3324902,
+          "latitude": 32.7513037
+        },
+        {
+          "longitude": -97.3325003,
+          "latitude": 32.7508616
+        },
+        {
+          "longitude": -97.3324697,
+          "latitude": 32.7508607
+        },
+        {
+          "longitude": -97.3324682,
+          "latitude": 32.7506863
+        },
+        {
+          "longitude": -97.3325374,
+          "latitude": 32.7506859
+        },
+        {
+          "longitude": -97.3325384,
+          "latitude": 32.7505136
+        },
+        {
+          "longitude": -97.3325077,
+          "latitude": 32.7505138
+        },
+        {
+          "longitude": -97.3324717,
+          "latitude": 32.750514
+        },
+        {
+          "longitude": -97.3322964,
+          "latitude": 32.7505151
+        },
+        {
+          "longitude": -97.3321444,
+          "latitude": 32.750516
+        },
+        {
+          "longitude": -97.3321467,
+          "latitude": 32.7507822
+        },
+        {
+          "longitude": -97.3321474,
+          "latitude": 32.7508627
+        }
+      ]
+    },
+    {
+      "name": "parcel_1",
+      "building_type": "hotel",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3303397,
+          "latitude": 32.7540116
+        },
+        {
+          "longitude": -97.3300065,
+          "latitude": 32.753534
+        },
+        {
+          "longitude": -97.3302772,
+          "latitude": 32.7534004
+        },
+        {
+          "longitude": -97.330442,
+          "latitude": 32.7536365
+        },
+        {
+          "longitude": -97.3304524,
+          "latitude": 32.7536313
+        },
+        {
+          "longitude": -97.3306209,
+          "latitude": 32.7538728
+        },
+        {
+          "longitude": -97.3303397,
+          "latitude": 32.7540116
+        }
+      ]
+    },
+    {
+      "name": "parcel_2",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 3rd Street",
+      "geometry": [
+        {
+          "longitude": -97.3316234,
+          "latitude": 32.7549504
+        },
+        {
+          "longitude": -97.3318907,
+          "latitude": 32.7548204
+        },
+        {
+          "longitude": -97.3319356,
+          "latitude": 32.7548857
+        },
+        {
+          "longitude": -97.3316683,
+          "latitude": 32.7550157
+        },
+        {
+          "longitude": -97.3316234,
+          "latitude": 32.7549504
+        }
+      ]
+    },
+    {
+      "name": "parcel_3",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Commerce Street",
+      "geometry": [
+        {
+          "longitude": -97.3305551,
+          "latitude": 32.7549129
+        },
+        {
+          "longitude": -97.3308296,
+          "latitude": 32.7547824
+        },
+        {
+          "longitude": -97.3309049,
+          "latitude": 32.7548944
+        },
+        {
+          "longitude": -97.3306305,
+          "latitude": 32.7550249
+        },
+        {
+          "longitude": -97.3305551,
+          "latitude": 32.7549129
+        }
+      ]
+    },
+    {
+      "name": "parcel_4",
+      "building_type": "yes",
+      "city": "",
+      "state": "TX",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3308611,
+          "latitude": 32.7517132
+        },
+        {
+          "longitude": -97.3305757,
+          "latitude": 32.7518468
+        },
+        {
+          "longitude": -97.3304544,
+          "latitude": 32.7516635
+        },
+        {
+          "longitude": -97.3307527,
+          "latitude": 32.7515239
+        },
+        {
+          "longitude": -97.3308598,
+          "latitude": 32.7516856
+        },
+        {
+          "longitude": -97.3308469,
+          "latitude": 32.7516917
+        },
+        {
+          "longitude": -97.3308611,
+          "latitude": 32.7517132
+        }
+      ]
+    },
+    {
+      "name": "parcel_5",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3312384,
+          "latitude": 32.7512765
+        },
+        {
+          "longitude": -97.3315804,
+          "latitude": 32.7512759
+        },
+        {
+          "longitude": -97.3318122,
+          "latitude": 32.7516317
+        },
+        {
+          "longitude": -97.3315488,
+          "latitude": 32.7517531
+        },
+        {
+          "longitude": -97.3312384,
+          "latitude": 32.7512765
+        }
+      ]
+    },
+    {
+      "name": "parcel_6",
+      "building_type": "commercial",
+      "city": "",
+      "state": "",
+      "postal_address": "West 7th Street",
+      "geometry": [
+        {
+          "longitude": -97.3316567,
+          "latitude": 32.7519066
+        },
+        {
+          "longitude": -97.3322212,
+          "latitude": 32.7516381
+        },
+        {
+          "longitude": -97.3325438,
+          "latitude": 32.7521179
+        },
+        {
+          "longitude": -97.3319793,
+          "latitude": 32.7523863
+        },
+        {
+          "longitude": -97.3316567,
+          "latitude": 32.7519066
+        }
+      ]
+    },
+    {
+      "name": "parcel_7",
+      "building_type": "church",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3323078,
+          "latitude": 32.7524199
+        },
+        {
+          "longitude": -97.3324589,
+          "latitude": 32.7523505
+        },
+        {
+          "longitude": -97.332466,
+          "latitude": 32.7523615
+        },
+        {
+          "longitude": -97.3326084,
+          "latitude": 32.752296
+        },
+        {
+          "longitude": -97.3326322,
+          "latitude": 32.7523328
+        },
+        {
+          "longitude": -97.3326593,
+          "latitude": 32.7523203
+        },
+        {
+          "longitude": -97.332731,
+          "latitude": 32.7524306
+        },
+        {
+          "longitude": -97.3327028,
+          "latitude": 32.7524436
+        },
+        {
+          "longitude": -97.3327542,
+          "latitude": 32.7525227
+        },
+        {
+          "longitude": -97.3325971,
+          "latitude": 32.7525949
+        },
+        {
+          "longitude": -97.3325908,
+          "latitude": 32.7525853
+        },
+        {
+          "longitude": -97.3323369,
+          "latitude": 32.752702
+        },
+        {
+          "longitude": -97.3323171,
+          "latitude": 32.7526714
+        },
+        {
+          "longitude": -97.3322968,
+          "latitude": 32.7526807
+        },
+        {
+          "longitude": -97.3322784,
+          "latitude": 32.7526523
+        },
+        {
+          "longitude": -97.3322504,
+          "latitude": 32.7526651
+        },
+        {
+          "longitude": -97.3321708,
+          "latitude": 32.7525426
+        },
+        {
+          "longitude": -97.3321988,
+          "latitude": 32.7525298
+        },
+        {
+          "longitude": -97.332176,
+          "latitude": 32.7524947
+        },
+        {
+          "longitude": -97.332315,
+          "latitude": 32.7524309
+        },
+        {
+          "longitude": -97.3323078,
+          "latitude": 32.7524199
+        }
+      ]
+    },
+    {
+      "name": "parcel_8",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 6th Street",
+      "geometry": [
+        {
+          "longitude": -97.3332537,
+          "latitude": 32.7513733
+        },
+        {
+          "longitude": -97.333806,
+          "latitude": 32.7511045
+        },
+        {
+          "longitude": -97.3339815,
+          "latitude": 32.7513596
+        },
+        {
+          "longitude": -97.3340132,
+          "latitude": 32.7514057
+        },
+        {
+          "longitude": -97.3334609,
+          "latitude": 32.7516745
+        },
+        {
+          "longitude": -97.3332537,
+          "latitude": 32.7513733
+        }
+      ]
+    },
+    {
+      "name": "parcel_9",
+      "building_type": "yes",
+      "city": "",
+      "state": "TX",
+      "postal_address": "West 7th Street",
+      "geometry": [
+        {
+          "longitude": -97.3332776,
+          "latitude": 32.751745
+        },
+        {
+          "longitude": -97.3329957,
+          "latitude": 32.75188
+        },
+        {
+          "longitude": -97.3328025,
+          "latitude": 32.7515946
+        },
+        {
+          "longitude": -97.3326735,
+          "latitude": 32.7514042
+        },
+        {
+          "longitude": -97.3329553,
+          "latitude": 32.7512692
+        },
+        {
+          "longitude": -97.3332776,
+          "latitude": 32.751745
+        }
+      ]
+    },
+    {
+      "name": "parcel_10",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3329957,
+          "latitude": 32.75188
+        },
+        {
+          "longitude": -97.3330456,
+          "latitude": 32.7519537
+        },
+        {
+          "longitude": -97.3330938,
+          "latitude": 32.7520249
+        },
+        {
+          "longitude": -97.3332632,
+          "latitude": 32.7522749
+        },
+        {
+          "longitude": -97.3329838,
+          "latitude": 32.7524087
+        },
+        {
+          "longitude": -97.3323942,
+          "latitude": 32.751538
+        },
+        {
+          "longitude": -97.3326735,
+          "latitude": 32.7514042
+        },
+        {
+          "longitude": -97.3328025,
+          "latitude": 32.7515946
+        },
+        {
+          "longitude": -97.3329957,
+          "latitude": 32.75188
+        }
+      ]
+    },
+    {
+      "name": "parcel_11",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 4th Street",
+      "geometry": [
+        {
+          "longitude": -97.3341785,
+          "latitude": 32.7526996
+        },
+        {
+          "longitude": -97.3341498,
+          "latitude": 32.7526581
+        },
+        {
+          "longitude": -97.3341293,
+          "latitude": 32.7526661
+        },
+        {
+          "longitude": -97.3339722,
+          "latitude": 32.7524337
+        },
+        {
+          "longitude": -97.3345263,
+          "latitude": 32.7521627
+        },
+        {
+          "longitude": -97.3346987,
+          "latitude": 32.7524103
+        },
+        {
+          "longitude": -97.3344294,
+          "latitude": 32.7525425
+        },
+        {
+          "longitude": -97.3345785,
+          "latitude": 32.7527679
+        },
+        {
+          "longitude": -97.3342921,
+          "latitude": 32.7529041
+        },
+        {
+          "longitude": -97.3341589,
+          "latitude": 32.752709
+        },
+        {
+          "longitude": -97.3341785,
+          "latitude": 32.7526996
+        }
+      ]
+    },
+    {
+      "name": "parcel_12",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 4th Street",
+      "geometry": [
+        {
+          "longitude": -97.3350171,
+          "latitude": 32.7531281
+        },
+        {
+          "longitude": -97.334982,
+          "latitude": 32.7530777
+        },
+        {
+          "longitude": -97.3348855,
+          "latitude": 32.7531253
+        },
+        {
+          "longitude": -97.3347547,
+          "latitude": 32.7529375
+        },
+        {
+          "longitude": -97.3349662,
+          "latitude": 32.7528333
+        },
+        {
+          "longitude": -97.3351008,
+          "latitude": 32.7530265
+        },
+        {
+          "longitude": -97.3350697,
+          "latitude": 32.7530419
+        },
+        {
+          "longitude": -97.3350912,
+          "latitude": 32.7530727
+        },
+        {
+          "longitude": -97.3350366,
+          "latitude": 32.7530996
+        },
+        {
+          "longitude": -97.3350464,
+          "latitude": 32.7531137
+        },
+        {
+          "longitude": -97.3350171,
+          "latitude": 32.7531281
+        }
+      ]
+    },
+    {
+      "name": "parcel_13",
+      "building_type": "residential",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3325736,
+          "latitude": 32.7531142
+        },
+        {
+          "longitude": -97.3327622,
+          "latitude": 32.7530225
+        },
+        {
+          "longitude": -97.3327679,
+          "latitude": 32.7530309
+        },
+        {
+          "longitude": -97.3328114,
+          "latitude": 32.7530098
+        },
+        {
+          "longitude": -97.3328053,
+          "latitude": 32.7530008
+        },
+        {
+          "longitude": -97.3329895,
+          "latitude": 32.7529113
+        },
+        {
+          "longitude": -97.3329939,
+          "latitude": 32.7529177
+        },
+        {
+          "longitude": -97.3330436,
+          "latitude": 32.7528936
+        },
+        {
+          "longitude": -97.3330518,
+          "latitude": 32.7528896
+        },
+        {
+          "longitude": -97.3330561,
+          "latitude": 32.7528958
+        },
+        {
+          "longitude": -97.3330856,
+          "latitude": 32.7529388
+        },
+        {
+          "longitude": -97.3330934,
+          "latitude": 32.752935
+        },
+        {
+          "longitude": -97.3331974,
+          "latitude": 32.7530864
+        },
+        {
+          "longitude": -97.3331886,
+          "latitude": 32.7530907
+        },
+        {
+          "longitude": -97.3332223,
+          "latitude": 32.7531398
+        },
+        {
+          "longitude": -97.333232,
+          "latitude": 32.7531351
+        },
+        {
+          "longitude": -97.3333424,
+          "latitude": 32.7532957
+        },
+        {
+          "longitude": -97.3333316,
+          "latitude": 32.7533009
+        },
+        {
+          "longitude": -97.3333604,
+          "latitude": 32.7533427
+        },
+        {
+          "longitude": -97.3333647,
+          "latitude": 32.753349
+        },
+        {
+          "longitude": -97.3333565,
+          "latitude": 32.753353
+        },
+        {
+          "longitude": -97.3333056,
+          "latitude": 32.7533777
+        },
+        {
+          "longitude": -97.3333103,
+          "latitude": 32.7533846
+        },
+        {
+          "longitude": -97.333125,
+          "latitude": 32.7534746
+        },
+        {
+          "longitude": -97.3331195,
+          "latitude": 32.7534666
+        },
+        {
+          "longitude": -97.3330736,
+          "latitude": 32.7534889
+        },
+        {
+          "longitude": -97.3330782,
+          "latitude": 32.7534956
+        },
+        {
+          "longitude": -97.3328967,
+          "latitude": 32.7535838
+        },
+        {
+          "longitude": -97.3328914,
+          "latitude": 32.753576
+        },
+        {
+          "longitude": -97.3328371,
+          "latitude": 32.7536024
+        },
+        {
+          "longitude": -97.3328288,
+          "latitude": 32.7536064
+        },
+        {
+          "longitude": -97.3328245,
+          "latitude": 32.7536001
+        },
+        {
+          "longitude": -97.3327946,
+          "latitude": 32.7535566
+        },
+        {
+          "longitude": -97.3327837,
+          "latitude": 32.7535619
+        },
+        {
+          "longitude": -97.3326752,
+          "latitude": 32.7534039
+        },
+        {
+          "longitude": -97.3326855,
+          "latitude": 32.7533988
+        },
+        {
+          "longitude": -97.3326587,
+          "latitude": 32.7533598
+        },
+        {
+          "longitude": -97.3326498,
+          "latitude": 32.7533641
+        },
+        {
+          "longitude": -97.332541,
+          "latitude": 32.7532057
+        },
+        {
+          "longitude": -97.3325491,
+          "latitude": 32.7532018
+        },
+        {
+          "longitude": -97.3325219,
+          "latitude": 32.7531622
+        },
+        {
+          "longitude": -97.3325176,
+          "latitude": 32.7531559
+        },
+        {
+          "longitude": -97.3325258,
+          "latitude": 32.753152
+        },
+        {
+          "longitude": -97.3325811,
+          "latitude": 32.7531251
+        },
+        {
+          "longitude": -97.3325736,
+          "latitude": 32.7531142
+        }
+      ]
+    },
+    {
+      "name": "parcel_14",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3312797,
+          "latitude": 32.7539424
+        },
+        {
+          "longitude": -97.3312129,
+          "latitude": 32.7539751
+        },
+        {
+          "longitude": -97.3311821,
+          "latitude": 32.7539305
+        },
+        {
+          "longitude": -97.3310825,
+          "latitude": 32.7539792
+        },
+        {
+          "longitude": -97.3311332,
+          "latitude": 32.7540526
+        },
+        {
+          "longitude": -97.3310366,
+          "latitude": 32.7540999
+        },
+        {
+          "longitude": -97.330916,
+          "latitude": 32.7539252
+        },
+        {
+          "longitude": -97.3311791,
+          "latitude": 32.7537967
+        },
+        {
+          "longitude": -97.3312797,
+          "latitude": 32.7539424
+        }
+      ]
+    },
+    {
+      "name": "parcel_15",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3313998,
+          "latitude": 32.7540052
+        },
+        {
+          "longitude": -97.3316408,
+          "latitude": 32.753887
+        },
+        {
+          "longitude": -97.3316453,
+          "latitude": 32.7538936
+        },
+        {
+          "longitude": -97.3317938,
+          "latitude": 32.754108
+        },
+        {
+          "longitude": -97.3315753,
+          "latitude": 32.7542132
+        },
+        {
+          "longitude": -97.3315464,
+          "latitude": 32.7542272
+        },
+        {
+          "longitude": -97.3313998,
+          "latitude": 32.7540052
+        }
+      ]
+    },
+    {
+      "name": "parcel_16",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3310366,
+          "latitude": 32.7540999
+        },
+        {
+          "longitude": -97.3311193,
+          "latitude": 32.7542192
+        },
+        {
+          "longitude": -97.3313981,
+          "latitude": 32.7540823
+        },
+        {
+          "longitude": -97.3313153,
+          "latitude": 32.7539631
+        },
+        {
+          "longitude": -97.3311332,
+          "latitude": 32.7540526
+        },
+        {
+          "longitude": -97.3310366,
+          "latitude": 32.7540999
+        }
+      ]
+    },
+    {
+      "name": "parcel_17",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3310156,
+          "latitude": 32.7533729
+        },
+        {
+          "longitude": -97.3312265,
+          "latitude": 32.7532715
+        },
+        {
+          "longitude": -97.3313048,
+          "latitude": 32.7533866
+        },
+        {
+          "longitude": -97.3307457,
+          "latitude": 32.7536555
+        },
+        {
+          "longitude": -97.3306693,
+          "latitude": 32.7535432
+        },
+        {
+          "longitude": -97.3309374,
+          "latitude": 32.7534142
+        },
+        {
+          "longitude": -97.3309355,
+          "latitude": 32.7534114
+        },
+        {
+          "longitude": -97.3310156,
+          "latitude": 32.7533729
+        }
+      ]
+    },
+    {
+      "name": "parcel_18",
+      "building_type": "yes",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "West 5th Street",
+      "geometry": [
+        {
+          "longitude": -97.3308244,
+          "latitude": 32.7537713
+        },
+        {
+          "longitude": -97.3307457,
+          "latitude": 32.7536555
+        },
+        {
+          "longitude": -97.3313048,
+          "latitude": 32.7533866
+        },
+        {
+          "longitude": -97.3313183,
+          "latitude": 32.7533801
+        },
+        {
+          "longitude": -97.331397,
+          "latitude": 32.753496
+        },
+        {
+          "longitude": -97.3308244,
+          "latitude": 32.7537713
+        }
+      ]
+    },
+    {
+      "name": "parcel_19",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3316365,
+          "latitude": 32.7538698
+        },
+        {
+          "longitude": -97.331374,
+          "latitude": 32.7539952
+        },
+        {
+          "longitude": -97.3312233,
+          "latitude": 32.7537591
+        },
+        {
+          "longitude": -97.3314827,
+          "latitude": 32.753639
+        },
+        {
+          "longitude": -97.3316365,
+          "latitude": 32.7538698
+        }
+      ]
+    },
+    {
+      "name": "parcel_20",
+      "building_type": "yes",
+      "city": "",
+      "state": "TX",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.331196,
+          "latitude": 32.7542469
+        },
+        {
+          "longitude": -97.3311692,
+          "latitude": 32.7542066
+        },
+        {
+          "longitude": -97.3312784,
+          "latitude": 32.7541552
+        },
+        {
+          "longitude": -97.3313126,
+          "latitude": 32.7542066
+        },
+        {
+          "longitude": -97.3314524,
+          "latitude": 32.7541408
+        },
+        {
+          "longitude": -97.3315363,
+          "latitude": 32.754267
+        },
+        {
+          "longitude": -97.3312506,
+          "latitude": 32.7544014
+        },
+        {
+          "longitude": -97.3311593,
+          "latitude": 32.7542641
+        },
+        {
+          "longitude": -97.331196,
+          "latitude": 32.7542469
+        }
+      ]
+    },
+    {
+      "name": "parcel_21",
+      "building_type": "yes",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3308274,
+          "latitude": 32.7532505
+        },
+        {
+          "longitude": -97.3308483,
+          "latitude": 32.7532816
+        },
+        {
+          "longitude": -97.3305738,
+          "latitude": 32.7534121
+        },
+        {
+          "longitude": -97.3305692,
+          "latitude": 32.7534143
+        },
+        {
+          "longitude": -97.3304816,
+          "latitude": 32.753284
+        },
+        {
+          "longitude": -97.3307607,
+          "latitude": 32.7531513
+        },
+        {
+          "longitude": -97.3307627,
+          "latitude": 32.7531542
+        },
+        {
+          "longitude": -97.3308274,
+          "latitude": 32.7532505
+        }
+      ]
+    },
+    {
+      "name": "parcel_22",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3309343,
+          "latitude": 32.7534095
+        },
+        {
+          "longitude": -97.3306598,
+          "latitude": 32.75354
+        },
+        {
+          "longitude": -97.3305738,
+          "latitude": 32.7534121
+        },
+        {
+          "longitude": -97.3308483,
+          "latitude": 32.7532816
+        },
+        {
+          "longitude": -97.3308873,
+          "latitude": 32.7533396
+        },
+        {
+          "longitude": -97.3309343,
+          "latitude": 32.7534095
+        }
+      ]
+    },
+    {
+      "name": "parcel_23",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 6th Street",
+      "geometry": [
+        {
+          "longitude": -97.3319224,
+          "latitude": 32.7529307
+        },
+        {
+          "longitude": -97.3318307,
+          "latitude": 32.7527918
+        },
+        {
+          "longitude": -97.331748,
+          "latitude": 32.7528304
+        },
+        {
+          "longitude": -97.3317605,
+          "latitude": 32.7528494
+        },
+        {
+          "longitude": -97.3316884,
+          "latitude": 32.752883
+        },
+        {
+          "longitude": -97.3316085,
+          "latitude": 32.7527619
+        },
+        {
+          "longitude": -97.3318817,
+          "latitude": 32.7526343
+        },
+        {
+          "longitude": -97.3320408,
+          "latitude": 32.7528753
+        },
+        {
+          "longitude": -97.3319224,
+          "latitude": 32.7529307
+        }
+      ]
+    },
+    {
+      "name": "parcel_24",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3319227,
+          "latitude": 32.7532454
+        },
+        {
+          "longitude": -97.3317722,
+          "latitude": 32.7533175
+        },
+        {
+          "longitude": -97.3317813,
+          "latitude": 32.7533309
+        },
+        {
+          "longitude": -97.3317232,
+          "latitude": 32.7533589
+        },
+        {
+          "longitude": -97.3317157,
+          "latitude": 32.7533479
+        },
+        {
+          "longitude": -97.3316207,
+          "latitude": 32.7533934
+        },
+        {
+          "longitude": -97.3312926,
+          "latitude": 32.7529088
+        },
+        {
+          "longitude": -97.3315454,
+          "latitude": 32.7527877
+        },
+        {
+          "longitude": -97.3315963,
+          "latitude": 32.7527633
+        },
+        {
+          "longitude": -97.3319227,
+          "latitude": 32.7532454
+        }
+      ]
+    },
+    {
+      "name": "parcel_25",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3308903,
+          "latitude": 32.7523067
+        },
+        {
+          "longitude": -97.3311817,
+          "latitude": 32.7527393
+        },
+        {
+          "longitude": -97.3317583,
+          "latitude": 32.7524645
+        },
+        {
+          "longitude": -97.331612,
+          "latitude": 32.7522473
+        },
+        {
+          "longitude": -97.3314669,
+          "latitude": 32.7520319
+        },
+        {
+          "longitude": -97.3308903,
+          "latitude": 32.7523067
+        }
+      ]
+    },
+    {
+      "name": "parcel_26",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3309355,
+          "latitude": 32.7534114
+        },
+        {
+          "longitude": -97.3309343,
+          "latitude": 32.7534095
+        },
+        {
+          "longitude": -97.3308873,
+          "latitude": 32.7533396
+        },
+        {
+          "longitude": -97.3311794,
+          "latitude": 32.7532007
+        },
+        {
+          "longitude": -97.3312265,
+          "latitude": 32.7532715
+        },
+        {
+          "longitude": -97.3310156,
+          "latitude": 32.7533729
+        },
+        {
+          "longitude": -97.3309355,
+          "latitude": 32.7534114
+        }
+      ]
+    },
+    {
+      "name": "parcel_27",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3322488,
+          "latitude": 32.754343
+        },
+        {
+          "longitude": -97.3325467,
+          "latitude": 32.7541977
+        },
+        {
+          "longitude": -97.3327589,
+          "latitude": 32.7545055
+        },
+        {
+          "longitude": -97.3324609,
+          "latitude": 32.7546507
+        },
+        {
+          "longitude": -97.3322488,
+          "latitude": 32.754343
+        }
+      ]
+    },
+    {
+      "name": "parcel_28",
+      "building_type": "apartments",
+      "city": "",
+      "state": "TX",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3328182,
+          "latitude": 32.7540654
+        },
+        {
+          "longitude": -97.332819,
+          "latitude": 32.754065
+        },
+        {
+          "longitude": -97.3326948,
+          "latitude": 32.7538848
+        },
+        {
+          "longitude": -97.3321246,
+          "latitude": 32.7541628
+        },
+        {
+          "longitude": -97.3322488,
+          "latitude": 32.754343
+        },
+        {
+          "longitude": -97.3325467,
+          "latitude": 32.7541977
+        },
+        {
+          "longitude": -97.3328182,
+          "latitude": 32.7540654
+        }
+      ]
+    },
+    {
+      "name": "parcel_29",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3304309,
+          "latitude": 32.7541588
+        },
+        {
+          "longitude": -97.3306889,
+          "latitude": 32.7540322
+        },
+        {
+          "longitude": -97.3307665,
+          "latitude": 32.7541442
+        },
+        {
+          "longitude": -97.3305085,
+          "latitude": 32.7542707
+        },
+        {
+          "longitude": -97.3304309,
+          "latitude": 32.7541588
+        }
+      ]
+    },
+    {
+      "name": "parcel_30",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3307473,
+          "latitude": 32.75463
+        },
+        {
+          "longitude": -97.3305142,
+          "latitude": 32.7542877
+        },
+        {
+          "longitude": -97.3306469,
+          "latitude": 32.7542238
+        },
+        {
+          "longitude": -97.3306768,
+          "latitude": 32.7542677
+        },
+        {
+          "longitude": -97.330804,
+          "latitude": 32.7542064
+        },
+        {
+          "longitude": -97.3310058,
+          "latitude": 32.7545027
+        },
+        {
+          "longitude": -97.3309293,
+          "latitude": 32.7545395
+        },
+        {
+          "longitude": -97.3309119,
+          "latitude": 32.7545139
+        },
+        {
+          "longitude": -97.3308038,
+          "latitude": 32.754566
+        },
+        {
+          "longitude": -97.3308227,
+          "latitude": 32.7545937
+        },
+        {
+          "longitude": -97.3307473,
+          "latitude": 32.75463
+        }
+      ]
+    },
+    {
+      "name": "parcel_31",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3305535,
+          "latitude": 32.7527671
+        },
+        {
+          "longitude": -97.3304938,
+          "latitude": 32.7526792
+        },
+        {
+          "longitude": -97.330382,
+          "latitude": 32.7525145
+        },
+        {
+          "longitude": -97.330381,
+          "latitude": 32.7525131
+        },
+        {
+          "longitude": -97.330659,
+          "latitude": 32.7523796
+        },
+        {
+          "longitude": -97.3308314,
+          "latitude": 32.7526336
+        },
+        {
+          "longitude": -97.3308255,
+          "latitude": 32.7526364
+        },
+        {
+          "longitude": -97.3305535,
+          "latitude": 32.7527671
+        }
+      ]
+    },
+    {
+      "name": "parcel_32",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3308255,
+          "latitude": 32.7526364
+        },
+        {
+          "longitude": -97.330981,
+          "latitude": 32.7528655
+        },
+        {
+          "longitude": -97.3304023,
+          "latitude": 32.7531433
+        },
+        {
+          "longitude": -97.3302933,
+          "latitude": 32.7529828
+        },
+        {
+          "longitude": -97.3302468,
+          "latitude": 32.7529143
+        },
+        {
+          "longitude": -97.330439,
+          "latitude": 32.752822
+        },
+        {
+          "longitude": -97.3305535,
+          "latitude": 32.7527671
+        },
+        {
+          "longitude": -97.3308255,
+          "latitude": 32.7526364
+        }
+      ]
+    },
+    {
+      "name": "parcel_33",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "West 6th Street",
+      "geometry": [
+        {
+          "longitude": -97.3335724,
+          "latitude": 32.7518264
+        },
+        {
+          "longitude": -97.3341297,
+          "latitude": 32.7515623
+        },
+        {
+          "longitude": -97.3341609,
+          "latitude": 32.7516072
+        },
+        {
+          "longitude": -97.3344474,
+          "latitude": 32.7520202
+        },
+        {
+          "longitude": -97.3338858,
+          "latitude": 32.7522967
+        },
+        {
+          "longitude": -97.333645,
+          "latitude": 32.7519354
+        },
+        {
+          "longitude": -97.3335724,
+          "latitude": 32.7518264
+        }
+      ]
+    },
+    {
+      "name": "parcel_34",
+      "building_type": "commercial",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "West 6th Street",
+      "geometry": [
+        {
+          "longitude": -97.3342921,
+          "latitude": 32.7514741
+        },
+        {
+          "longitude": -97.3343531,
+          "latitude": 32.7514436
+        },
+        {
+          "longitude": -97.3347917,
+          "latitude": 32.7512244
+        },
+        {
+          "longitude": -97.3347835,
+          "latitude": 32.7518542
+        },
+        {
+          "longitude": -97.3346134,
+          "latitude": 32.751933
+        },
+        {
+          "longitude": -97.3343295,
+          "latitude": 32.7515275
+        },
+        {
+          "longitude": -97.3342921,
+          "latitude": 32.7514741
+        }
+      ]
+    },
+    {
+      "name": "parcel_35",
+      "building_type": "apartments",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3339951,
+          "latitude": 32.7538943
+        },
+        {
+          "longitude": -97.3338779,
+          "latitude": 32.7537282
+        },
+        {
+          "longitude": -97.3338446,
+          "latitude": 32.753681
+        },
+        {
+          "longitude": -97.3338277,
+          "latitude": 32.7536571
+        },
+        {
+          "longitude": -97.3344153,
+          "latitude": 32.753387
+        },
+        {
+          "longitude": -97.3345782,
+          "latitude": 32.7536166
+        },
+        {
+          "longitude": -97.3339951,
+          "latitude": 32.7538943
+        }
+      ]
+    },
+    {
+      "name": "parcel_36",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3332277,
+          "latitude": 32.7527822
+        },
+        {
+          "longitude": -97.3338094,
+          "latitude": 32.7524955
+        },
+        {
+          "longitude": -97.3341493,
+          "latitude": 32.7529956
+        },
+        {
+          "longitude": -97.3341967,
+          "latitude": 32.7530654
+        },
+        {
+          "longitude": -97.3342332,
+          "latitude": 32.753119
+        },
+        {
+          "longitude": -97.3344153,
+          "latitude": 32.753387
+        },
+        {
+          "longitude": -97.3338277,
+          "latitude": 32.7536571
+        },
+        {
+          "longitude": -97.3338129,
+          "latitude": 32.753664
+        },
+        {
+          "longitude": -97.3336414,
+          "latitude": 32.7534139
+        },
+        {
+          "longitude": -97.3335991,
+          "latitude": 32.7533522
+        },
+        {
+          "longitude": -97.333556,
+          "latitude": 32.7532894
+        },
+        {
+          "longitude": -97.3332353,
+          "latitude": 32.7528217
+        },
+        {
+          "longitude": -97.3332501,
+          "latitude": 32.7528149
+        },
+        {
+          "longitude": -97.3332277,
+          "latitude": 32.7527822
+        }
+      ]
+    },
+    {
+      "name": "parcel_37",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3343698,
+          "latitude": 32.7544761
+        },
+        {
+          "longitude": -97.3342016,
+          "latitude": 32.7542287
+        },
+        {
+          "longitude": -97.3340749,
+          "latitude": 32.7540423
+        },
+        {
+          "longitude": -97.3343876,
+          "latitude": 32.7538885
+        },
+        {
+          "longitude": -97.3344339,
+          "latitude": 32.7539549
+        },
+        {
+          "longitude": -97.3344977,
+          "latitude": 32.7539253
+        },
+        {
+          "longitude": -97.334449,
+          "latitude": 32.7538561
+        },
+        {
+          "longitude": -97.3347245,
+          "latitude": 32.753722
+        },
+        {
+          "longitude": -97.3349974,
+          "latitude": 32.7535891
+        },
+        {
+          "longitude": -97.3350477,
+          "latitude": 32.753661
+        },
+        {
+          "longitude": -97.3351181,
+          "latitude": 32.7536273
+        },
+        {
+          "longitude": -97.3350718,
+          "latitude": 32.7535596
+        },
+        {
+          "longitude": -97.3353853,
+          "latitude": 32.7534072
+        },
+        {
+          "longitude": -97.3357459,
+          "latitude": 32.7539356
+        },
+        {
+          "longitude": -97.3351509,
+          "latitude": 32.7542228
+        },
+        {
+          "longitude": -97.3351318,
+          "latitude": 32.754191
+        },
+        {
+          "longitude": -97.3349984,
+          "latitude": 32.7542557
+        },
+        {
+          "longitude": -97.3350192,
+          "latitude": 32.7542834
+        },
+        {
+          "longitude": -97.3344331,
+          "latitude": 32.7545693
+        },
+        {
+          "longitude": -97.3343698,
+          "latitude": 32.7544761
+        }
+      ]
+    },
+    {
+      "name": "parcel_38",
+      "building_type": "yes",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Taylor Street",
+      "geometry": [
+        {
+          "longitude": -97.333139,
+          "latitude": 32.7526566
+        },
+        {
+          "longitude": -97.333709,
+          "latitude": 32.7523836
+        },
+        {
+          "longitude": -97.3333749,
+          "latitude": 32.7518903
+        },
+        {
+          "longitude": -97.3330938,
+          "latitude": 32.7520249
+        },
+        {
+          "longitude": -97.3332632,
+          "latitude": 32.7522749
+        },
+        {
+          "longitude": -97.3329838,
+          "latitude": 32.7524087
+        },
+        {
+          "longitude": -97.3329742,
+          "latitude": 32.7524133
+        },
+        {
+          "longitude": -97.333139,
+          "latitude": 32.7526566
+        }
+      ]
+    },
+    {
+      "name": "parcel_39",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3338271,
+          "latitude": 32.7539696
+        },
+        {
+          "longitude": -97.3334947,
+          "latitude": 32.7541314
+        },
+        {
+          "longitude": -97.3331666,
+          "latitude": 32.7536545
+        },
+        {
+          "longitude": -97.3334991,
+          "latitude": 32.7534927
+        },
+        {
+          "longitude": -97.3336322,
+          "latitude": 32.7536862
+        },
+        {
+          "longitude": -97.3338271,
+          "latitude": 32.7539696
+        }
+      ]
+    },
+    {
+      "name": "parcel_40",
+      "building_type": "office",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3332525,
+          "latitude": 32.7542492
+        },
+        {
+          "longitude": -97.3329245,
+          "latitude": 32.7537723
+        },
+        {
+          "longitude": -97.3331666,
+          "latitude": 32.7536545
+        },
+        {
+          "longitude": -97.3334947,
+          "latitude": 32.7541314
+        },
+        {
+          "longitude": -97.3332525,
+          "latitude": 32.7542492
+        }
+      ]
+    },
+    {
+      "name": "parcel_41",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3335342,
+          "latitude": 32.7546245
+        },
+        {
+          "longitude": -97.333375,
+          "latitude": 32.7543851
+        },
+        {
+          "longitude": -97.3339156,
+          "latitude": 32.7541308
+        },
+        {
+          "longitude": -97.3340748,
+          "latitude": 32.7543703
+        },
+        {
+          "longitude": -97.333722,
+          "latitude": 32.7545362
+        },
+        {
+          "longitude": -97.3335342,
+          "latitude": 32.7546245
+        }
+      ]
+    },
+    {
+      "name": "parcel_42",
+      "building_type": "commercial",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Commerce Street",
+      "geometry": [
+        {
+          "longitude": -97.3306305,
+          "latitude": 32.7550249
+        },
+        {
+          "longitude": -97.3309049,
+          "latitude": 32.7548944
+        },
+        {
+          "longitude": -97.3311575,
+          "latitude": 32.75527
+        },
+        {
+          "longitude": -97.330883,
+          "latitude": 32.7554005
+        },
+        {
+          "longitude": -97.3306305,
+          "latitude": 32.7550249
+        }
+      ]
+    },
+    {
+      "name": "parcel_43",
+      "building_type": "commercial",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3320019,
+          "latitude": 32.7548394
+        },
+        {
+          "longitude": -97.3316821,
+          "latitude": 32.7543568
+        },
+        {
+          "longitude": -97.3317698,
+          "latitude": 32.7543157
+        },
+        {
+          "longitude": -97.3317798,
+          "latitude": 32.7543309
+        },
+        {
+          "longitude": -97.331904,
+          "latitude": 32.7542726
+        },
+        {
+          "longitude": -97.3319602,
+          "latitude": 32.7543574
+        },
+        {
+          "longitude": -97.3319795,
+          "latitude": 32.7543483
+        },
+        {
+          "longitude": -97.3319951,
+          "latitude": 32.7543718
+        },
+        {
+          "longitude": -97.3319728,
+          "latitude": 32.7543822
+        },
+        {
+          "longitude": -97.3320385,
+          "latitude": 32.7544814
+        },
+        {
+          "longitude": -97.3320617,
+          "latitude": 32.7544705
+        },
+        {
+          "longitude": -97.3321297,
+          "latitude": 32.7545732
+        },
+        {
+          "longitude": -97.3321101,
+          "latitude": 32.7545824
+        },
+        {
+          "longitude": -97.3321603,
+          "latitude": 32.7546581
+        },
+        {
+          "longitude": -97.332165,
+          "latitude": 32.7546559
+        },
+        {
+          "longitude": -97.3321767,
+          "latitude": 32.7546736
+        },
+        {
+          "longitude": -97.3321909,
+          "latitude": 32.7546669
+        },
+        {
+          "longitude": -97.3322329,
+          "latitude": 32.7547303
+        },
+        {
+          "longitude": -97.3321988,
+          "latitude": 32.7547462
+        },
+        {
+          "longitude": -97.3322017,
+          "latitude": 32.7547505
+        },
+        {
+          "longitude": -97.3320456,
+          "latitude": 32.7548236
+        },
+        {
+          "longitude": -97.3320433,
+          "latitude": 32.75482
+        },
+        {
+          "longitude": -97.3320019,
+          "latitude": 32.7548394
+        }
+      ]
+    },
+    {
+      "name": "parcel_44",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "West 3rd Street",
+      "geometry": [
+        {
+          "longitude": -97.3320432,
+          "latitude": 32.7555612
+        },
+        {
+          "longitude": -97.332035,
+          "latitude": 32.7555493
+        },
+        {
+          "longitude": -97.3319895,
+          "latitude": 32.7554833
+        },
+        {
+          "longitude": -97.331968,
+          "latitude": 32.7554521
+        },
+        {
+          "longitude": -97.3319687,
+          "latitude": 32.7554517
+        },
+        {
+          "longitude": -97.331964,
+          "latitude": 32.7554448
+        },
+        {
+          "longitude": -97.3319193,
+          "latitude": 32.75538
+        },
+        {
+          "longitude": -97.3318799,
+          "latitude": 32.7553228
+        },
+        {
+          "longitude": -97.331856,
+          "latitude": 32.7552881
+        },
+        {
+          "longitude": -97.3317674,
+          "latitude": 32.7551596
+        },
+        {
+          "longitude": -97.3320279,
+          "latitude": 32.7550326
+        },
+        {
+          "longitude": -97.3320492,
+          "latitude": 32.7550223
+        },
+        {
+          "longitude": -97.3323254,
+          "latitude": 32.7548876
+        },
+        {
+          "longitude": -97.3324059,
+          "latitude": 32.7550044
+        },
+        {
+          "longitude": -97.3321545,
+          "latitude": 32.7551269
+        },
+        {
+          "longitude": -97.3321317,
+          "latitude": 32.755138
+        },
+        {
+          "longitude": -97.3321433,
+          "latitude": 32.7551548
+        },
+        {
+          "longitude": -97.3321483,
+          "latitude": 32.755162
+        },
+        {
+          "longitude": -97.3320337,
+          "latitude": 32.7552179
+        },
+        {
+          "longitude": -97.3320327,
+          "latitude": 32.7552183
+        },
+        {
+          "longitude": -97.3320479,
+          "latitude": 32.7552403
+        },
+        {
+          "longitude": -97.3320512,
+          "latitude": 32.7552452
+        },
+        {
+          "longitude": -97.3321299,
+          "latitude": 32.7552068
+        },
+        {
+          "longitude": -97.3321334,
+          "latitude": 32.7552118
+        },
+        {
+          "longitude": -97.3322177,
+          "latitude": 32.7553342
+        },
+        {
+          "longitude": -97.3322219,
+          "latitude": 32.7553322
+        },
+        {
+          "longitude": -97.3322868,
+          "latitude": 32.7554265
+        },
+        {
+          "longitude": -97.3322951,
+          "latitude": 32.7554384
+        },
+        {
+          "longitude": -97.3322753,
+          "latitude": 32.7554481
+        },
+        {
+          "longitude": -97.3320432,
+          "latitude": 32.7555612
+        }
+      ]
+    },
+    {
+      "name": "parcel_45",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Main Street",
+      "geometry": [
+        {
+          "longitude": -97.3307627,
+          "latitude": 32.7531542
+        },
+        {
+          "longitude": -97.3310548,
+          "latitude": 32.7530153
+        },
+        {
+          "longitude": -97.3311195,
+          "latitude": 32.7531116
+        },
+        {
+          "longitude": -97.3308274,
+          "latitude": 32.7532505
+        },
+        {
+          "longitude": -97.3307627,
+          "latitude": 32.7531542
+        }
+      ]
+    },
+    {
+      "name": "parcel_46",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Commerce Street",
+      "geometry": [
+        {
+          "longitude": -97.3305033,
+          "latitude": 32.7542823
+        },
+        {
+          "longitude": -97.3307341,
+          "latitude": 32.7546209
+        },
+        {
+          "longitude": -97.3304343,
+          "latitude": 32.7547654
+        },
+        {
+          "longitude": -97.3302036,
+          "latitude": 32.7544268
+        },
+        {
+          "longitude": -97.3305033,
+          "latitude": 32.7542823
+        }
+      ]
+    },
+    {
+      "name": "parcel_47",
+      "building_type": "commercial",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3342936,
+          "latitude": 32.7546814
+        },
+        {
+          "longitude": -97.3340748,
+          "latitude": 32.7543703
+        },
+        {
+          "longitude": -97.333722,
+          "latitude": 32.7545362
+        },
+        {
+          "longitude": -97.3338062,
+          "latitude": 32.7547817
+        },
+        {
+          "longitude": -97.3337951,
+          "latitude": 32.754859
+        },
+        {
+          "longitude": -97.3338303,
+          "latitude": 32.7548466
+        },
+        {
+          "longitude": -97.3338714,
+          "latitude": 32.7548332
+        },
+        {
+          "longitude": -97.3338914,
+          "latitude": 32.7548624
+        },
+        {
+          "longitude": -97.3339996,
+          "latitude": 32.7548099
+        },
+        {
+          "longitude": -97.3340644,
+          "latitude": 32.7547966
+        },
+        {
+          "longitude": -97.3341268,
+          "latitude": 32.754777
+        },
+        {
+          "longitude": -97.3341861,
+          "latitude": 32.7547513
+        },
+        {
+          "longitude": -97.3342424,
+          "latitude": 32.7547191
+        },
+        {
+          "longitude": -97.3342936,
+          "latitude": 32.7546814
+        }
+      ]
+    },
+    {
+      "name": "parcel_48",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3320657,
+          "latitude": 32.7512534
+        },
+        {
+          "longitude": -97.3321361,
+          "latitude": 32.7514781
+        },
+        {
+          "longitude": -97.3318122,
+          "latitude": 32.7516317
+        },
+        {
+          "longitude": -97.33168,
+          "latitude": 32.7514268
+        },
+        {
+          "longitude": -97.3315804,
+          "latitude": 32.7512759
+        },
+        {
+          "longitude": -97.3318087,
+          "latitude": 32.7511688
+        },
+        {
+          "longitude": -97.3320412,
+          "latitude": 32.751171
+        },
+        {
+          "longitude": -97.3320657,
+          "latitude": 32.7512534
+        }
+      ]
+    },
+    {
+      "name": "parcel_49",
+      "building_type": "parking",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3342552,
+          "latitude": 32.7557241
+        },
+        {
+          "longitude": -97.3339317,
+          "latitude": 32.7552476
+        },
+        {
+          "longitude": -97.3338698,
+          "latitude": 32.7551563
+        },
+        {
+          "longitude": -97.33406,
+          "latitude": 32.755065
+        },
+        {
+          "longitude": -97.3339685,
+          "latitude": 32.7549302
+        },
+        {
+          "longitude": -97.3343402,
+          "latitude": 32.7547517
+        },
+        {
+          "longitude": -97.3344679,
+          "latitude": 32.7549398
+        },
+        {
+          "longitude": -97.3348172,
+          "latitude": 32.7554543
+        },
+        {
+          "longitude": -97.3347842,
+          "latitude": 32.7554702
+        },
+        {
+          "longitude": -97.3344399,
+          "latitude": 32.7556355
+        },
+        {
+          "longitude": -97.3342552,
+          "latitude": 32.7557241
+        }
+      ]
+    },
+    {
+      "name": "parcel_50",
+      "building_type": "commercial",
+      "city": "",
+      "state": "",
+      "postal_address": "Throckmorton Street",
+      "geometry": [
+        {
+          "longitude": -97.3328838,
+          "latitude": 32.7553115
+        },
+        {
+          "longitude": -97.3328253,
+          "latitude": 32.7552254
+        },
+        {
+          "longitude": -97.3328372,
+          "latitude": 32.7552197
+        },
+        {
+          "longitude": -97.332813,
+          "latitude": 32.755184
+        },
+        {
+          "longitude": -97.3331101,
+          "latitude": 32.7550412
+        },
+        {
+          "longitude": -97.3330702,
+          "latitude": 32.7549826
+        },
+        {
+          "longitude": -97.3330317,
+          "latitude": 32.7549259
+        },
+        {
+          "longitude": -97.3328356,
+          "latitude": 32.7546374
+        },
+        {
+          "longitude": -97.332964,
+          "latitude": 32.7545756
+        },
+        {
+          "longitude": -97.3329643,
+          "latitude": 32.7545761
+        },
+        {
+          "longitude": -97.3330109,
+          "latitude": 32.7545537
+        },
+        {
+          "longitude": -97.3331377,
+          "latitude": 32.7544928
+        },
+        {
+          "longitude": -97.3334946,
+          "latitude": 32.7550179
+        },
+        {
+          "longitude": -97.3334778,
+          "latitude": 32.755026
+        },
+        {
+          "longitude": -97.3333284,
+          "latitude": 32.7550977
+        },
+        {
+          "longitude": -97.3328851,
+          "latitude": 32.7553109
+        },
+        {
+          "longitude": -97.3328838,
+          "latitude": 32.7553115
+        }
+      ]
+    },
+    {
+      "name": "parcel_51",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3327481,
+          "latitude": 32.7550622
+        },
+        {
+          "longitude": -97.3327247,
+          "latitude": 32.7550735
+        },
+        {
+          "longitude": -97.3325286,
+          "latitude": 32.7547849
+        },
+        {
+          "longitude": -97.3328356,
+          "latitude": 32.7546374
+        },
+        {
+          "longitude": -97.3330317,
+          "latitude": 32.7549259
+        },
+        {
+          "longitude": -97.3327481,
+          "latitude": 32.7550622
+        }
+      ]
+    },
+    {
+      "name": "parcel_52",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3308274,
+          "latitude": 32.7532505
+        },
+        {
+          "longitude": -97.3311195,
+          "latitude": 32.7531116
+        },
+        {
+          "longitude": -97.3311794,
+          "latitude": 32.7532007
+        },
+        {
+          "longitude": -97.3308873,
+          "latitude": 32.7533396
+        },
+        {
+          "longitude": -97.3308483,
+          "latitude": 32.7532816
+        },
+        {
+          "longitude": -97.3308274,
+          "latitude": 32.7532505
+        }
+      ]
+    },
+    {
+      "name": "parcel_53",
+      "building_type": "yes",
+      "city": "Fort Worth",
+      "state": "TX",
+      "postal_address": "Houston Street",
+      "geometry": [
+        {
+          "longitude": -97.3330317,
+          "latitude": 32.7549259
+        },
+        {
+          "longitude": -97.3330702,
+          "latitude": 32.7549826
+        },
+        {
+          "longitude": -97.3327866,
+          "latitude": 32.7551189
+        },
+        {
+          "longitude": -97.3327481,
+          "latitude": 32.7550622
+        },
+        {
+          "longitude": -97.3330317,
+          "latitude": 32.7549259
+        }
+      ]
+    },
+    {
+      "name": "parcel_54",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3305897,
+          "latitude": 32.7513555
+        },
+        {
+          "longitude": -97.3306308,
+          "latitude": 32.7514152
+        },
+        {
+          "longitude": -97.3303688,
+          "latitude": 32.7515427
+        },
+        {
+          "longitude": -97.3303278,
+          "latitude": 32.751483
+        },
+        {
+          "longitude": -97.3305897,
+          "latitude": 32.7513555
+        }
+      ]
+    },
+    {
+      "name": "parcel_55",
+      "building_type": "yes",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3307296,
+          "latitude": 32.7513702
+        },
+        {
+          "longitude": -97.3306641,
+          "latitude": 32.7514017
+        },
+        {
+          "longitude": -97.3306555,
+          "latitude": 32.7514058
+        },
+        {
+          "longitude": -97.3305748,
+          "latitude": 32.7512874
+        },
+        {
+          "longitude": -97.330649,
+          "latitude": 32.7512517
+        },
+        {
+          "longitude": -97.3307296,
+          "latitude": 32.7513702
+        }
+      ]
+    },
+    {
+      "name": "parcel_56",
+      "building_type": "roof",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3309621,
+          "latitude": 32.7524537
+        },
+        {
+          "longitude": -97.3309253,
+          "latitude": 32.7524711
+        },
+        {
+          "longitude": -97.330901,
+          "latitude": 32.7524347
+        },
+        {
+          "longitude": -97.3309378,
+          "latitude": 32.7524173
+        },
+        {
+          "longitude": -97.3309621,
+          "latitude": 32.7524537
+        }
+      ]
+    },
+    {
+      "name": "parcel_57",
+      "building_type": "roof",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3318676,
+          "latitude": 32.753793
+        },
+        {
+          "longitude": -97.3318303,
+          "latitude": 32.7538095
+        },
+        {
+          "longitude": -97.3318072,
+          "latitude": 32.7537726
+        },
+        {
+          "longitude": -97.3318445,
+          "latitude": 32.7537561
+        },
+        {
+          "longitude": -97.3318676,
+          "latitude": 32.753793
+        }
+      ]
+    },
+    {
+      "name": "parcel_58",
+      "building_type": "roof",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3325782,
+          "latitude": 32.7536037
+        },
+        {
+          "longitude": -97.3325429,
+          "latitude": 32.7536201
+        },
+        {
+          "longitude": -97.3325189,
+          "latitude": 32.7535838
+        },
+        {
+          "longitude": -97.3325543,
+          "latitude": 32.7535673
+        },
+        {
+          "longitude": -97.3325782,
+          "latitude": 32.7536037
+        }
+      ]
+    },
+    {
+      "name": "parcel_59",
+      "building_type": "roof",
+      "city": "",
+      "state": "",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3317567,
+          "latitude": 32.7523929
+        },
+        {
+          "longitude": -97.3317289,
+          "latitude": 32.7524061
+        },
+        {
+          "longitude": -97.33169,
+          "latitude": 32.7523479
+        },
+        {
+          "longitude": -97.3317178,
+          "latitude": 32.7523348
+        },
+        {
+          "longitude": -97.3317567,
+          "latitude": 32.7523929
+        }
+      ]
+    },
+    {
+      "name": "parcel_60",
+      "building_type": "apartments",
+      "city": "",
+      "state": "TX",
+      "postal_address": "",
+      "geometry": [
+        {
+          "longitude": -97.3325467,
+          "latitude": 32.7541977
+        },
+        {
+          "longitude": -97.3327589,
+          "latitude": 32.7545055
+        },
+        {
+          "longitude": -97.3328161,
+          "latitude": 32.7544776
+        },
+        {
+          "longitude": -97.3330304,
+          "latitude": 32.7543731
+        },
+        {
+          "longitude": -97.3328182,
+          "latitude": 32.7540654
+        },
+        {
+          "longitude": -97.3325467,
+          "latitude": 32.7541977
+        }
+      ]
+    }
+  ]
+}

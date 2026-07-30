@@ -5,17 +5,17 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext, GraphMeta
 from shift.mcp_server.serializers import serialize_graph_summary
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def create_graph(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         name: str = "",
     ) -> str:
         """Create a new empty distribution graph.
@@ -52,7 +52,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def delete_graph(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
     ) -> str:
         """Delete a distribution graph and its associated mappers.
@@ -83,7 +83,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def list_graphs(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
     ) -> str:
         """List all distribution graphs in the current session.
 

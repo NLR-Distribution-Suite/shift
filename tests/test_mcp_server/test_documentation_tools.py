@@ -1,6 +1,6 @@
 """Tests for documentation tools (search, read, list)."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.state import AppContext
 from shift.mcp_server.tools.documentation import search, read
@@ -8,7 +8,7 @@ from shift.mcp_server.tools.documentation import search, read
 from tests.test_mcp_server.conftest import MockContext, parse
 
 
-_mcp = FastMCP("test-docs")
+_mcp = MCPServer("test-docs")
 search.register(_mcp)
 read.register(_mcp)
 

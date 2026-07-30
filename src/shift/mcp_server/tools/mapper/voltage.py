@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def configure_voltage_mapper(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         transformer_voltages: list[dict],
     ) -> str:
@@ -62,7 +62,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def get_voltage_mapping(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
     ) -> str:
         """Get voltage assignments for all nodes in a distribution graph.

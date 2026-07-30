@@ -164,3 +164,13 @@ cache
 
 # macOS Finder metadata
 .DS_Store
+
+# Research papers (PDFs not tracked)
+.papers/
+
+# Local OSM PBF dumps (large binaries — do not commit)
+.dump/
+
+# GATES build artifacts (generated distribution systems)
+gates_system_*.json
+gates_system_*_time_series/

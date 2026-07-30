@@ -2,7 +2,7 @@
 
 from shift.mcp_server.server import create_server, _index_docs
 from shift.mcp_server.prompts import workflows
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 
 # ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ class TestCreateServer:
     def test_has_tools(self):
         server = create_server()
         tools = server._tool_manager._tools
-        assert len(tools) == 33
+        assert len(tools) == 36
 
     def test_has_prompts(self):
         server = create_server()
@@ -29,7 +29,7 @@ class TestCreateServer:
     def test_has_resource_templates(self):
         server = create_server()
         templates = server._resource_manager._templates
-        assert len(templates) == 3
+        assert len(templates) == 1
 
     def test_expected_tool_names(self):
         server = create_server()
@@ -68,6 +68,9 @@ class TestCreateServer:
             "list_docs",
             "read_doc",
             "search_docs",
+            "set_local_pbf",
+            "route_existing_graph",
+            "layout_existing_graph",
         }
         assert tool_names == expected
 
@@ -79,7 +82,7 @@ class TestCreateServer:
     def test_expected_resource_uris(self):
         server = create_server()
         uris = set(server._resource_manager._templates.keys())
-        assert uris == {"shift://docs", "shift://docs/{doc_name}", "shift://graphs"}
+        assert uris == {"shift://docs/{doc_name}"}
 
 
 # ---------------------------------------------------------------------------
@@ -121,17 +124,17 @@ class TestIndexDocs:
 
 class TestPrompts:
     def test_build_feeder_prompt_registered(self):
-        mcp = FastMCP("test-prompts")
+        mcp = MCPServer("test-prompts")
         workflows.register(mcp)
         prompts = mcp._prompt_manager._prompts
         assert "build_feeder_from_location" in prompts
 
     def test_inspect_network_prompt_registered(self):
-        mcp = FastMCP("test-prompts")
+        mcp = MCPServer("test-prompts")
         workflows.register(mcp)
         assert "inspect_network" in mcp._prompt_manager._prompts
 
     def test_explore_api_prompt_registered(self):
-        mcp = FastMCP("test-prompts")
+        mcp = MCPServer("test-prompts")
         workflows.register(mcp)
         assert "explore_api" in mcp._prompt_manager._prompts

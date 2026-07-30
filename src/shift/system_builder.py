@@ -10,12 +10,20 @@ from gdm.distribution.components import (
     DistributionTransformer,
     DistributionBranchBase,
     DistributionBus,
+    MatrixImpedanceBranch,
+    SequenceImpedanceBranch,
+    GeometryBranch,
+)
+from gdm.distribution.equipment import (
+    MatrixImpedanceBranchEquipment,
+    SequenceImpedanceBranchEquipment,
+    GeometryBranchEquipment,
 )
 from gdm.distribution.enums import (
     VoltageTypes,
     Phase,
 )
-from gdm.quantities import Voltage
+from gdm.quantities import Voltage, Distance
 import numpy as np
 
 from shift.data_model import (
@@ -141,7 +149,25 @@ class DistributionSystemBuilder:
 
     def _add_branch(self, from_node: str, to_node: str, edge_data: EdgeModel):
         """Internal method to add branch."""
-        edge = edge_data.edge_type(
+        equipment = self.equipment_mapper.edge_equipment_mapping[edge_data.name]
+        # Resolve concrete branch type from equipment when edge_type is the abstract base
+        branch_type = edge_data.edge_type
+        if branch_type is DistributionBranchBase:
+            if isinstance(equipment, MatrixImpedanceBranchEquipment):
+                branch_type = MatrixImpedanceBranch
+            elif isinstance(equipment, SequenceImpedanceBranchEquipment):
+                branch_type = SequenceImpedanceBranch
+            elif isinstance(equipment, GeometryBranchEquipment):
+                branch_type = GeometryBranch
+
+        # GDM branches require a strictly positive length. Routing/relaxation can
+        # place two connected nodes at (near) identical coordinates, yielding a
+        # zero-length edge; clamp to a small minimum so the branch is valid.
+        length = edge_data.length
+        if length is None or length.to("meter").magnitude <= 0:
+            length = Distance(1.0, "meter")
+
+        edge = branch_type(
             name=edge_data.name,
             buses=[
                 self._system.get_component(DistributionBus, from_node),
@@ -149,8 +175,8 @@ class DistributionSystemBuilder:
             ],
             phases=self.phase_mapper.node_phase_mapping[from_node]
             & self.phase_mapper.node_phase_mapping[to_node],
-            equipment=self.equipment_mapper.edge_equipment_mapping[edge_data.name],
-            length=edge_data.length,
+            equipment=equipment,
+            length=length,
         )
         self._system.add_component(edge)
 

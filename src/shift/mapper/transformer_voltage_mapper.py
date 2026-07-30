@@ -84,4 +84,33 @@ class TransformerVoltageMapper(BaseVoltageMapper):
                 node_voltages,
                 min,
             )
+
+        self._fill_uncovered_nodes(node_voltages, dfs_tree)
         return node_voltages
+
+    def _fill_uncovered_nodes(self, node_voltages: dict[str, Voltage], dfs_tree) -> None:
+        """Assign voltages to nodes not reached by transformer propagation.
+
+        Nodes that are neither upstream of a transformer's low side nor
+        downstream of its high side (e.g. dead-end primary junctions with no
+        transformer below them) receive no voltage from the propagation above.
+        Such nodes inherit their DFS-tree parent's voltage, defaulting to the
+        highest transformer primary voltage so buses can always be built.
+        """
+        all_voltages = [v for xfmr in self.xfmr_voltage for v in xfmr.voltages]
+        default_voltage = max(all_voltages) if all_voltages else None
+
+        source = getattr(self.graph, "vsource_node", None)
+        if source is not None and source in dfs_tree:
+            for node in nx.bfs_tree(dfs_tree, source=source):
+                if node in node_voltages:
+                    continue
+                preds = list(dfs_tree.predecessors(node))
+                if preds and preds[0] in node_voltages:
+                    node_voltages[node] = node_voltages[preds[0]]
+                elif default_voltage is not None:
+                    node_voltages[node] = default_voltage
+
+        if default_voltage is not None:
+            for node in self.graph.get_nodes():
+                node_voltages.setdefault(node.name, default_voltage)

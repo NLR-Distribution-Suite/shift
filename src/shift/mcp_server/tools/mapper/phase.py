@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
@@ -62,10 +62,10 @@ def _format_phase_mapping(mapper, mapping_type):
     return None, f"Unknown mapping_type '{mapping_type}'. Valid: nodes, assets, transformers"
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def configure_phase_mapper(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         transformer_configs: list[dict],
         method: str = "agglomerative",
@@ -109,11 +109,15 @@ def register(mcp: FastMCP) -> None:
             )
 
         except Exception as exc:
-            return json.dumps({"success": False, "error": str(exc)})
+            import traceback
+
+            return json.dumps(
+                {"success": False, "error": str(exc), "traceback": traceback.format_exc()}
+            )
 
     @mcp.tool()
     def get_phase_mapping(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         mapping_type: str = "nodes",
     ) -> str:

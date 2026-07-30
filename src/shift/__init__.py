@@ -26,7 +26,14 @@ from shift.plots import (
 
 from shift.utils.mesh_network import get_mesh_network
 from shift.utils.split_network_edges import split_network_edges
-from shift.utils.get_cluster import get_kmeans_clusters
+from shift.utils.get_cluster import (
+    get_kmeans_clusters,
+    get_area_aware_clusters,
+    get_balanced_kmeans_clusters,
+    get_capacity_distance_clusters,
+    estimate_feeder_count,
+)
+from shift.utils.geo import region_area_km2_from_polygon, region_area_km2_from_points
 from shift.utils.polygon_from_points import get_polygon_from_points
 from shift.utils.nearest_points import get_nearest_points
 
@@ -34,6 +41,33 @@ from shift.graph.prsgb import PRSG
 from shift.graph.distribution_graph import DistributionGraph
 from shift.graph.base_graph_builder import BaseGraphBuilder
 from shift.graph.openstreet_graph_builder import OpenStreetGraphBuilder
+from shift.graph.routing import (
+    RoutingStrategy,
+    SteinerTreeStrategy,
+    WeightedSteinerTreeStrategy,
+    ShortestPathTreeStrategy,
+    MinimumSpanningTreeStrategy,
+    FullRoadGraphStrategy,
+    CostOptimizedStrategy,
+)
+from shift.graph.secondary import (
+    SecondaryNetworkStrategy,
+    MeshSteinerStrategy,
+    RadialStrategy,
+    DelaunayStrategy,
+    OpenStreetSecondaryStrategy,
+    HubLineStrategy,
+    TrunkBranchStrategy,
+)
+from shift.graph.graph_utils import compute_graph_metrics, extract_graph_geometry
+from shift.graph.strategy_resolver import (
+    auto_select_secondary_strategy,
+    get_routing_strategy,
+    get_secondary_strategy,
+    ROUTING_STRATEGIES,
+    SECONDARY_STRATEGIES,
+    NETWORK_PRESETS,
+)
 
 from shift.mapper.base_equipment_mapper import BaseEquipmentMapper
 from shift.mapper.edge_equipment_mapper import EdgeEquipmentMapper

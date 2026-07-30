@@ -4,19 +4,30 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 
+# Module-level reference set during lifespan; resources need it but
+# MCP 2.0 disallows Context on static resources.
+_app_ctx: AppContext | None = None
 
-def register(mcp: FastMCP) -> None:
+
+def set_app_context(ctx: AppContext) -> None:
+    global _app_ctx
+    _app_ctx = ctx
+
+
+def register(mcp: MCPServer) -> None:
     """Register documentation resources."""
 
     @mcp.resource("shift://docs")
-    def list_all_docs(ctx: Context[ServerSession, AppContext]) -> str:
+    def list_all_docs() -> str:
         """List all available documentation files."""
-        app: AppContext = ctx.request_context.lifespan_context
+        app = _app_ctx
+        if app is None:
+            return json.dumps({"docs": [], "count": 0})
         docs = []
         for key in sorted(app.docs_index.keys()):
             desc = app.docs_descriptions.get(key, "")
@@ -24,7 +35,7 @@ def register(mcp: FastMCP) -> None:
         return json.dumps({"docs": docs, "count": len(docs)})
 
     @mcp.resource("shift://docs/{doc_name}")
-    def read_doc_resource(doc_name: str, ctx: Context[ServerSession, AppContext]) -> str:
+    def read_doc_resource(doc_name: str, ctx: Context[AppContext]) -> str:
         """Read a specific documentation file by name.
 
         URI pattern: shift://docs/{doc_name}
@@ -41,9 +52,11 @@ def register(mcp: FastMCP) -> None:
         return app.docs_index[doc_name]
 
     @mcp.resource("shift://graphs")
-    def list_graphs_resource(ctx: Context[ServerSession, AppContext]) -> str:
+    def list_graphs_resource() -> str:
         """List all in-memory distribution graphs."""
-        app: AppContext = ctx.request_context.lifespan_context
+        app = _app_ctx
+        if app is None:
+            return json.dumps({"graphs": [], "count": 0})
         graphs = []
         for gid, meta in app.graph_meta.items():
             graphs.append(

@@ -29,18 +29,22 @@ dependencies = [
   "scikit-learn",
   "plotly",
   "geopy",
-  "grid-data-models==2.3.3",
+  "grid-data-models==2.3.7",
   "importlib-metadata",
   "loguru",
+  "defusedxml",
 ]
 
 [project.optional-dependencies]
-dev = ["pre-commit", "pytest", "pytest-cov", "pytest-mock", "ruff==0.15.13", "shapely"]
-doc = ["jupyter-book<3", "myst-parser", "autodoc_pydantic"]
-mcp = ["mcp[cli]>=1.2.0", "pyyaml"]
+dev = ["pre-commit", "pytest", "pytest-cov", "pytest-mock", "ruff==0.15.5", "shapely"]
+doc = ["jupyter-book<2", "myst-parser", "autodoc_pydantic", "sphinxcontrib-bibtex"]
+mcp = ["mcp>=2.0", "pyyaml"]
+ui = ["fastapi>=0.110", "uvicorn>=0.29"]
+flow = ["gdm-flow>=0.3.2"]
 
 [project.scripts]
 shift-mcp-server = "shift.mcp_server.__main__:main"
+shift-ui-server = "shift.ui_api.__main__:main"
 
 [project.urls]
 Documentation = "https://github.com/NLR-Distribution-Suite/shift#readme"

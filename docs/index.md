@@ -11,6 +11,7 @@ pip install nrel-shift
 ## Documentation
 
 - [User Guides](usage/index.md)
+- [UI Studio Guide](usage/ui_studio.md)
 - [Reference Guides](references/index.md)
 - [API Reference](API_REFERENCE.md)
 - [MCP Server](MCP_SERVER.md)

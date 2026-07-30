@@ -18,6 +18,7 @@ from infrasys import Location
 from shift.exceptions import EmptyGraphError
 from shift.graph.base_graph_builder import BaseGraphBuilder
 from shift.graph.distribution_graph import DistributionGraph
+from shift.graph.routing import RoutingStrategy, SteinerTreeStrategy
 from shift.data_model import GeoLocation, GroupModel, EdgeModel, NodeModel, VALID_NODE_TYPES
 from shift.utils.nearest_points import get_nearest_points
 from shift.utils.split_network_edges import get_distance_between_points
@@ -53,6 +54,7 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
         groups: list[GroupModel],
         source_location: GeoLocation,
         buffer: Distance = Distance(20, "m"),
+        routing_strategy: RoutingStrategy | None = None,
     ):
         """Constructor for the class.
 
@@ -66,10 +68,14 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
         buffer: Distance, optional
             Buffer to be applied in a bounding polygon formed
             by `points` for searching road network. Defaults to 20m.
+        routing_strategy: RoutingStrategy, optional
+            Strategy for routing the primary network. Defaults to
+            SteinerTreeStrategy (uniform weights, backward-compatible).
         """
         self.groups = groups
         self.source_location = source_location
         self.buffer = buffer
+        self.routing_strategy = routing_strategy or SteinerTreeStrategy()
         self.point_node_mapping = {}
 
     @staticmethod
@@ -120,6 +126,10 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
     def _get_steiner_tree(graph: nx.Graph, nearest_nodes: list[str]):
         """Returns steineer tree from a given graph and nearest nodes.
 
+        .. deprecated::
+            Use routing_strategy.route() instead. This static method is
+            retained for backward compatibility.
+
         Parameters
         ----------
 
@@ -138,6 +148,22 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
             nearest_nodes,
             method="mehlhorn",
         )
+
+    def _route_network(self, graph: nx.Graph, terminal_nodes: list[str]) -> nx.Graph:
+        """Route terminal nodes through the candidate graph using the configured strategy.
+
+        Parameters
+        ----------
+        graph : nx.Graph
+            Candidate network graph.
+        terminal_nodes : list[str]
+            Nodes to connect.
+
+        Returns
+        -------
+        nx.Graph
+        """
+        return self.routing_strategy.route(graph, terminal_nodes)
 
     @abstractmethod
     def build_secondary_network(self, group: GroupModel) -> nx.Graph:
@@ -309,6 +335,12 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
             logger.debug(f"Building secondary for {group.center}: {tr_node}")
 
             secondary_graph = self.build_secondary_network(group)
+            # Relabel all secondary nodes to unique UUIDs to avoid
+            # collisions with the primary network (OSMnx reuses node IDs).
+            secondary_graph = nx.relabel_nodes(
+                secondary_graph,
+                {n: str(uuid.uuid4()) for n in secondary_graph.nodes},
+            )
             sec_loads = self._get_nearest_nodes(secondary_graph, group.points)
             self.point_node_mapping.update(dict(zip(group.points, sec_loads)))
             tr_location = GeoLocation(
@@ -323,6 +355,25 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
             dist_network.add_edge(tr_node, new_tr_node_name)
             dist_network.add_edge(new_tr_node_name, nearest_sec_node)
             new_transformer_nodes.append(new_tr_node_name)
+
+        # Enforce radial topology: extract DFS tree from source node
+        # This removes any cycles while keeping all nodes reachable from source.
+        if nx.is_connected(dist_network):
+            dfs_edges = list(nx.dfs_edges(dist_network, source=substation_node))
+            radial = nx.Graph()
+            for u, v in dfs_edges:
+                radial.add_node(u, **dist_network.nodes[u])
+                radial.add_node(v, **dist_network.nodes[v])
+                radial.add_edge(u, v)
+            # Add any isolated nodes (shouldn't happen but safety)
+            for node in dist_network.nodes:
+                if node not in radial:
+                    radial.add_node(node, **dist_network.nodes[node])
+            logger.debug(
+                f"Radial enforcement: {dist_network.number_of_edges()} edges → "
+                f"{radial.number_of_edges()} edges (removed {dist_network.number_of_edges() - radial.number_of_edges()} cycles)"
+            )
+            dist_network = radial
 
         return self._get_distribution_graph_from_network(
             dist_network,

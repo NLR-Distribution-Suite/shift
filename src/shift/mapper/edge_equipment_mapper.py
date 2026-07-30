@@ -1,6 +1,9 @@
 from functools import cached_property
 import math
 from typing import Type
+from uuid import uuid4
+from loguru import logger
+
 
 from infrasys.component import Component
 from gdm.dataset.dataset_system import DatasetSystem
@@ -101,6 +104,28 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             served_load += self._get_load_power(equipment)
         return served_load
 
+    @staticmethod
+    def _is_phase_compatible(x: DistributionTransformerEquipment, num_phase: int) -> bool:
+        if num_phase == 3 and x.windings[0].num_phases != 3:
+            return False
+        if num_phase < 3 and x.windings[0].num_phases != min(num_phase, 1):
+            return False
+        return True
+
+    @staticmethod
+    def _is_voltage_compatible(
+        x: DistributionTransformerEquipment, num_phase: int, voltages: list
+    ) -> bool:
+        if not EdgeEquipmentMapper._is_phase_compatible(x, num_phase):
+            return False
+        wdg_voltages = [wdg.rated_voltage for wdg in x.windings]
+        for v1, v2 in zip(
+            sorted(voltages, reverse=True), sorted(wdg_voltages, reverse=True)[: len(voltages)]
+        ):
+            if v2 < 0.85 * v1 or v2 >= 1.15 * v1:
+                return False
+        return True
+
     def _get_closest_transformer_equipment(
         self, capacity: ApparentPower, num_phase: int, voltages: list[Voltage]
     ) -> Component:
@@ -108,18 +133,16 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
 
         def filter_func(x: DistributionTransformerEquipment):
             min_capacity = min([wdg.rated_power.to("kva") for wdg in x.windings])
-            if min_capacity <= capacity:
+            if min_capacity < capacity:
                 return False
-            if num_phase == 3 and x.windings[0].num_phases != 3:
-                return False
-            if num_phase < 3 and x.windings[0].num_phases != min(num_phase, 1):
+            if not self._is_phase_compatible(x, num_phase):
                 return False
             wdg_voltages = [wdg.rated_voltage for wdg in x.windings]
             for v1, v2 in zip(
                 sorted(voltages, reverse=True), sorted(wdg_voltages, reverse=True)[: len(voltages)]
             ):
                 if v2 < 0.85 * v1 or v2 >= 1.15 * v1:
-                    print(f"Failed V1 {v1}, V2 {v2}, winding voltages {wdg_voltages}.")
+                    logger.warning(f"Failed V1 {v1}, V2 {v2}, winding voltages {wdg_voltages}.")
                     return False
             return True
 
@@ -128,26 +151,179 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
                 DistributionTransformerEquipment, filter_func=filter_func
             )
         )
-        if not trs:
+        if trs:
+            return sorted(trs, key=lambda x: x.windings[0].rated_power)[0]
+
+        return self._synthesize_transformer(
+            capacity,
+            num_phase,
+            voltages,
+        )
+
+    def _synthesize_transformer(
+        self,
+        capacity: ApparentPower,
+        num_phase: int,
+        voltages: list[Voltage],
+    ) -> Component:
+        """Synthesize a transformer when no exact catalog match exists."""
+        requested_voltages = [round(v.to("kilovolt").magnitude, 6) for v in voltages]
+        available_transformers = list(
+            self.catalog_sys.get_components(DistributionTransformerEquipment)
+        )
+
+        voltage_compatible_candidates = [
+            x
+            for x in available_transformers
+            if isinstance(x, DistributionTransformerEquipment)
+            and self._is_voltage_compatible(x, num_phase, voltages)
+        ]
+
+        if voltage_compatible_candidates:
+            return self._synthesize_capacity_override(
+                voltage_compatible_candidates, capacity, num_phase, requested_voltages
+            )
+
+        return self._synthesize_full_override(
+            available_transformers,
+            capacity,
+            num_phase,
+            voltages,
+            requested_voltages,
+        )
+
+    def _synthesize_capacity_override(
+        self, candidates, capacity, num_phase, requested_voltages
+    ) -> Component:
+        """Synthesize by overriding capacity on a voltage-compatible template."""
+        base = sorted(
+            candidates,
+            key=lambda x: min(w.rated_power.to("kva").magnitude for w in x.windings),
+        )[-1]
+        required_kva = capacity.to("kva").magnitude
+        target_kva = round(required_kva * 1.05, 6)
+
+        new_uuid = uuid4()
+        new_windings = [
+            winding.model_copy(
+                update={
+                    "uuid": uuid4(),
+                    "name": winding.name or f"wdg_{idx + 1}",
+                    "rated_power": ApparentPower(target_kva, "kva"),
+                }
+            )
+            for idx, winding in enumerate(base.windings)
+        ]
+        synthesized = base.model_copy(
+            update={
+                "uuid": new_uuid,
+                "name": f"{base.name}_synth_{str(new_uuid)[:8]}",
+                "windings": new_windings,
+            }
+        )
+        logger.warning(
+            "Synthesized transformer equipment {} from template {} for requested_capacity_kva={} requested_voltages_kv={} num_phase={}.",
+            synthesized.name,
+            base.name,
+            round(required_kva, 6),
+            requested_voltages,
+            num_phase,
+        )
+        return synthesized
+
+    def _synthesize_full_override(
+        self,
+        available_transformers,
+        capacity,
+        num_phase,
+        voltages,
+        requested_voltages,
+    ) -> Component:
+        """Synthesize by overriding both voltage and capacity on any template."""
+        templates = [x for x in available_transformers if self._is_phase_compatible(x, num_phase)]
+        if not templates:
+            templates = available_transformers
+        if not templates:
+            logger.error(
+                "No transformer equipment available to synthesize from. "
+                "requested_capacity_kva={} requested_voltages_kv={} num_phase={}",
+                round(capacity.to("kva").magnitude, 6),
+                requested_voltages,
+                num_phase,
+            )
             msg = f"Equipment of type {DistributionTransformerEquipment} not found in catalog system."
             raise EquipmentNotFoundError(msg)
 
-        return sorted(trs, key=lambda x: x.windings[0].rated_power)[0]
+        base = sorted(
+            templates,
+            key=lambda x: min(w.rated_power.to("kva").magnitude for w in x.windings),
+        )[-1]
+        required_kva = capacity.to("kva").magnitude
+        target_kva = round(required_kva * 1.05, 6)
+        sorted_req_kv = sorted((v.to("kilovolt").magnitude for v in voltages), reverse=True)
+        primary_kv, secondary_kv = sorted_req_kv[0], sorted_req_kv[-1]
+        highest_winding = max(
+            base.windings, key=lambda w: w.rated_voltage.to("kilovolt").magnitude
+        )
 
-    def _get_closest_branch_equipment(
+        new_uuid = uuid4()
+        new_windings = [
+            winding.model_copy(
+                update={
+                    "uuid": uuid4(),
+                    "name": winding.name or f"wdg_{idx + 1}",
+                    "rated_power": ApparentPower(target_kva, "kva"),
+                    "rated_voltage": Voltage(
+                        primary_kv if winding is highest_winding else secondary_kv, "kilovolt"
+                    ),
+                }
+            )
+            for idx, winding in enumerate(base.windings)
+        ]
+        synthesized = base.model_copy(
+            update={
+                "uuid": new_uuid,
+                "name": f"{base.name}_synth_{str(new_uuid)[:8]}",
+                "windings": new_windings,
+            }
+        )
+        logger.warning(
+            "Synthesized transformer equipment {} from template {} with overridden "
+            "primary_kv={} secondary_kv={} (requested_voltages_kv={}, num_phase={}, "
+            "capacity_kva={}).",
+            synthesized.name,
+            base.name,
+            round(primary_kv, 6),
+            round(secondary_kv, 6),
+            requested_voltages,
+            num_phase,
+            round(required_kva, 6),
+        )
+        return synthesized
+
+    def _get_closest_branch_equipment(  # noqa: C901
         self, type_: Type[Component], current: Current, num_phase: int
     ) -> Component:
         """Internal method to return closest conductor equipment."""
+        phase_only_filter = None
+
         if issubclass(type_, MatrixImpedanceBranchEquipment):
 
             def filter_func(x: MatrixImpedanceBranchEquipment):
                 n_row, n_col = x.r_matrix.shape
                 return x.ampacity > current and n_row == num_phase and n_col == num_phase
 
+            def phase_only_filter(x: MatrixImpedanceBranchEquipment):
+                n_row, n_col = x.r_matrix.shape
+                return n_row == num_phase and n_col == num_phase
+
         elif issubclass(type_, SequenceImpedanceBranchEquipment):
 
             def filter_func(x: SequenceImpedanceBranchEquipment):
                 return x.ampacity > current and num_phase >= 3
+
+            def phase_only_filter(x: SequenceImpedanceBranchEquipment):
+                return num_phase >= 3
 
         elif issubclass(type_, GeometryBranchEquipment):
 
@@ -155,6 +331,9 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
                 return max([c.ampacity for c in x.conductors]) > current and num_phase <= len(
                     x.conductors
                 )
+
+            def phase_only_filter(x: GeometryBranchEquipment):
+                return num_phase <= len(x.conductors)
 
         else:
             msg = f"Not supported {type_=} passed to find branch equipment."
@@ -165,8 +344,28 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
         branches = [el for el in branches if type(el) is type_]
 
         if not branches:
-            msg = f"Equipment of type {type_} not found in catalog system."
-            raise EquipmentNotFoundError(msg)
+            phase_compatible = []
+            if phase_only_filter is not None:
+                phase_compatible = [
+                    el
+                    for el in self.catalog_sys.get_components(type_, filter_func=phase_only_filter)
+                    if type(el) is type_
+                ]
+
+            if not phase_compatible:
+                msg = f"Equipment of type {type_} not found in catalog system."
+                raise EquipmentNotFoundError(msg)
+
+            selected = sorted(phase_compatible, key=lambda x: x.ampacity)[-1]
+            logger.warning(
+                "No {} meets required current {} for num_phase={}. Falling back to highest-ampacity compatible equipment {} (ampacity={}).",
+                type_.__name__,
+                current,
+                num_phase,
+                selected.name,
+                selected.ampacity,
+            )
+            return selected
 
         return sorted(branches, key=lambda x: x.ampacity)[0]
 
@@ -179,14 +378,28 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             to_phases = self.phase_mapper.node_phase_mapping[to_node] - set(Phase.N)
             num_phase = min(len(from_phases), len(to_phases))
             if issubclass(edge.edge_type, DistributionTransformer):
-                edge_equipment_mapper[edge.name] = self._get_closest_transformer_equipment(
-                    served_load,
-                    num_phase,
-                    [
-                        self.voltage_mapper.node_voltage_mapping[from_node],
-                        self.voltage_mapper.node_voltage_mapping[to_node],
-                    ],
-                )
+                requested_voltages = [
+                    self.voltage_mapper.node_voltage_mapping[from_node],
+                    self.voltage_mapper.node_voltage_mapping[to_node],
+                ]
+                try:
+                    edge_equipment_mapper[edge.name] = self._get_closest_transformer_equipment(
+                        served_load,
+                        num_phase,
+                        requested_voltages,
+                    )
+                except EquipmentNotFoundError:
+                    logger.error(
+                        "Transformer equipment selection failed for edge={} from_node={} to_node={} served_load_kva={} from_phases={} to_phases={} requested_voltages_kv={}",
+                        edge.name,
+                        from_node,
+                        to_node,
+                        round(served_load.to("kva").magnitude, 6),
+                        sorted(str(ph) for ph in from_phases),
+                        sorted(str(ph) for ph in to_phases),
+                        [round(v.to("kilovolt").magnitude, 6) for v in requested_voltages],
+                    )
+                    raise
             elif issubclass(edge.edge_type, DistributionBranchBase):
                 kv = self.voltage_mapper.node_voltage_mapping[from_node].to("kilovolt").magnitude
                 kva = served_load.to("kilova").magnitude

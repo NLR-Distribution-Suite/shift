@@ -1,7 +1,7 @@
 """Tests for system builder/export tools and utility tools."""
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.tools.system import builder as sys_builder, export
 from shift.mcp_server.tools.utilities import geo, network, nearest
@@ -10,7 +10,7 @@ from shift.mcp_server.tools.data_acquisition import clustering
 from tests.test_mcp_server.conftest import MockContext, parse
 
 
-_mcp = FastMCP("test-sys-util")
+_mcp = MCPServer("test-sys-util")
 sys_builder.register(_mcp)
 export.register(_mcp)
 geo.register(_mcp)

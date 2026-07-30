@@ -1,13 +1,13 @@
 """Tests for mapper tools (phase, voltage, equipment)."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from shift.mcp_server.tools.mapper import phase, voltage, equipment
 
 from tests.test_mcp_server.conftest import MockContext, parse
 
 
-_mcp = FastMCP("test-mapper")
+_mcp = MCPServer("test-mapper")
 phase.register(_mcp)
 voltage.register(_mcp)
 equipment.register(_mcp)

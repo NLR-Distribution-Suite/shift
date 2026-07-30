@@ -24,8 +24,8 @@ clusters = get_kmeans_clusters(num_clusters, _get_parcel_points(parcels))
 
 `PRSG` (Primary–Secondary Road-network Graph) builds the distribution graph in two steps:
 
-1. **Primary network** — derived by reducing the road network in the area to a spanning tree.
-2. **Secondary network** — built as a 2-D grid connecting transformer locations to nearby customer parcels.
+1. **Primary network** — derived by routing through the road network in the area using a configurable {class}`~shift.RoutingStrategy`.
+2. **Secondary network** — built using a configurable {class}`~shift.SecondaryNetworkStrategy` connecting transformer locations to nearby customer parcels.
 
 The node closest to `source_location` is treated as the substation.
 
@@ -38,6 +38,54 @@ builder = PRSG(
 )
 graph = builder.get_distribution_graph()
 ```
+
+## Choosing a Routing Strategy
+
+By default, PRSG uses a Steiner tree with uniform edge weights. For more realistic
+routing that follows shorter physical paths, use {class}`~shift.WeightedSteinerTreeStrategy`:
+
+```python
+from shift import PRSG, WeightedSteinerTreeStrategy, GeoLocation
+
+builder = PRSG(
+    groups=clusters,
+    source_location=GeoLocation(-97.3, 32.75),
+    routing_strategy=WeightedSteinerTreeStrategy(),
+)
+graph = builder.get_distribution_graph()
+```
+
+Available routing strategies (see [Routing Strategies](../references/routing_strategies.md) for details):
+
+- **`SteinerTreeStrategy`** — Steiner tree, uniform weights (default, backward-compatible)
+- **`WeightedSteinerTreeStrategy`** — Steiner tree, geodesic distance weights {cite:p}`ali2023modeling`
+- **`ShortestPathTreeStrategy`** — Dijkstra shortest-path tree from source {cite:p}`ali2023modeling`
+- **`MinimumSpanningTreeStrategy`** — MST over terminals via shortest paths
+- **`FullRoadGraphStrategy`** — Full road network as topology {cite:p}`ali2023modeling`
+
+## Choosing a Secondary Network Strategy
+
+By default, PRSG uses a rectangular mesh grid with Steiner tree reduction. For
+simpler radial laterals or road-aware secondary routing:
+
+```python
+from shift import PRSG, RadialStrategy, GeoLocation
+
+builder = PRSG(
+    groups=clusters,
+    source_location=GeoLocation(-97.3, 32.75),
+    secondary_strategy=RadialStrategy(),
+)
+graph = builder.get_distribution_graph()
+```
+
+Available secondary strategies (see [Secondary Strategies](../references/secondary_strategies.md) for details):
+
+- **`MeshSteinerStrategy`** — Rectangular mesh + Steiner tree (default)
+- **`RadialStrategy`** — Direct star connection from transformer to loads
+- **`DelaunayStrategy`** — Delaunay triangulation + MST pruning
+- **`OpenStreetSecondaryStrategy`** — Routes secondary along actual roads {cite:p}`caetano2026bayesian`
+- **`HubLineStrategy`** — k-NN consumer-to-transformer assignment {cite:p}`ali2023modeling`
 
 ## Visualize the Graph
 

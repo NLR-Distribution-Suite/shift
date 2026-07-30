@@ -34,7 +34,10 @@ def agglomerative_allocations(
     distances: list[list[float]], names: list[str], num_categories: int
 ) -> list[list[str]]:
     """Kmeans weighted allocation."""
-    aggc = AgglomerativeClustering(n_clusters=num_categories, linkage="ward")
+    # Cannot request more clusters than there are samples (e.g. fewer
+    # single-phase transformers than phases); cap and leave extra bins empty.
+    n_clusters = max(1, min(num_categories, len(names)))
+    aggc = AgglomerativeClustering(n_clusters=n_clusters, linkage="ward")
     aggc.fit(distances)
     return _get_allocations(names, aggc.labels_, num_categories)
 
@@ -46,7 +49,8 @@ def kmeans_allocations(
     weights: list[float] | None = None,
 ) -> list[list[str]]:
     """Kmeans weighted allocation."""
-    kmeans = KMeans(n_clusters=num_categories)
+    n_clusters = max(1, min(num_categories, len(names)))
+    kmeans = KMeans(n_clusters=n_clusters)
     kmeans.fit(points, sample_weight=weights)
     return _get_allocations(names, kmeans.labels_, num_categories)
 
@@ -135,14 +139,8 @@ class BalancedPhaseMapper(BasePhaseMapper):
     def _get_head_node(self, edge_name: str) -> str:
         """Internal method to return head node."""
         nodes = list(self._get_nodes_by_edge_names([edge_name]))
-        return (
-            nodes[0]
-            if nodes[1]
-            in nx.dfs_successors(self.graph.get_dfs_tree(), source=nodes[0], depth_limit=1)[
-                nodes[0]
-            ]
-            else nodes[1]
-        )
+        successors = nx.dfs_successors(self.graph.get_dfs_tree(), source=nodes[0], depth_limit=1)
+        return nodes[0] if nodes[1] in successors.get(nodes[0], []) else nodes[1]
 
     def _update_single_phase_tr_nodes(
         self,
@@ -247,7 +245,10 @@ class BalancedPhaseMapper(BasePhaseMapper):
                     ],
                 )
                 if len(container[node]) > 3:
-                    breakpoint()
+                    # An over-merged bus (more than three assigned phases) is
+                    # normalized to full three-phase primary — consistent with
+                    # the two-phase promotion below and safe for GDM.
+                    container[node] = {Phase.A, Phase.B, Phase.C}
                 three_phase = {Phase.A, Phase.B, Phase.C}
                 two_phase_sets = list([set(el) for el in combinations(three_phase, 2)])
                 if container[node] in two_phase_sets:
@@ -279,7 +280,30 @@ class BalancedPhaseMapper(BasePhaseMapper):
         )
         self._update_node_phases_upward_from_transformer(self.mapper, node_phase_mapping)
         self._update_node_phases_downward_from_transformer(self.mapper, node_phase_mapping)
+        self._fill_uncovered_nodes(node_phase_mapping)
         return node_phase_mapping
+
+    def _fill_uncovered_nodes(self, container: dict) -> None:
+        """Assign phases to nodes not reached by transformer propagation.
+
+        Some topologies contain nodes that are neither on a transformer's
+        upstream path nor a descendant of a transformer head (e.g. primary
+        nodes without a downstream transformer). Such nodes inherit their
+        DFS-tree parent's phases so every node ends up with a valid mapping;
+        anything still unresolved defaults to three-phase.
+        """
+        three_phase = {Phase.A, Phase.B, Phase.C}
+        tree = self.graph.get_dfs_tree()
+        for node in nx.bfs_tree(tree, source=self.graph.vsource_node):
+            if node in container:
+                continue
+            preds = list(tree.predecessors(node))
+            if preds and container.get(preds[0]):
+                container[node] = set(container[preds[0]])
+            else:
+                container[node] = set(three_phase)
+        for node in self.graph.get_nodes():
+            container.setdefault(node.name, set(three_phase))
 
     @cached_property
     def asset_phase_mapping(self) -> dict[str, dict[VALID_NODE_TYPES, set[Phase]]]:

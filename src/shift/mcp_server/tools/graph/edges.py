@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 from shift.mcp_server.serializers import serialize_edge_tuple
@@ -29,10 +29,10 @@ def _get_edge_type_map() -> dict[str, type]:
     return _EDGE_TYPE_MAP
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: MCPServer) -> None:
     @mcp.tool()
     def add_edge(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         from_node: str,
         to_node: str,
@@ -90,7 +90,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def remove_edge(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         from_node: str,
         to_node: str,
@@ -116,7 +116,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def get_edge(
-        ctx: Context[ServerSession, AppContext],
+        ctx: Context[AppContext],
         graph_id: str,
         from_node: str,
         to_node: str,

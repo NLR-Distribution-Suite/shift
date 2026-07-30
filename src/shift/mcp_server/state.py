@@ -26,7 +26,7 @@ class GraphMeta:
 class AppContext:
     """In-memory session state shared across all tool calls.
 
-    Populated during the FastMCP lifespan hook and accessed via
+    Populated during the MCPServer lifespan hook and accessed via
     ``ctx.request_context.lifespan_context`` inside any tool function.
     """
 
