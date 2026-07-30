@@ -367,53 +367,19 @@ class TrunkBranchStrategy(SecondaryNetworkStrategy):
 
         return self._build_road_trunk_branch(group, road_network)
 
-    def _build_road_trunk_branch(self, group: GroupModel, road_network: nx.Graph) -> nx.Graph:  # noqa: C901
+    def _build_road_trunk_branch(self, group: GroupModel, road_network: nx.Graph) -> nx.Graph:
         """Build a trunk-and-branch secondary using road geometry."""
-        sec_graph = nx.Graph()
-        # 1. Find transformer node on road
         center_road_nodes = _get_nearest_nodes_from_graph(road_network, [group.center])
         tr_road_node = center_road_nodes[0]
-
-        # 2. Find nearest road node for each parcel
         parcel_road_nodes = _get_nearest_nodes_from_graph(road_network, group.points)
 
-        # 3. Build shortest-path tree from transformer to all parcel road nodes
-        # Compute shortest paths from transformer to each parcel's road node
-        trunk_graph = nx.Graph()
-        for target in parcel_road_nodes:
-            if target == tr_road_node:
-                continue
-            try:
-                path = nx.shortest_path(road_network, tr_road_node, target)
-                for i in range(len(path) - 1):
-                    u, v = path[i], path[i + 1]
-                    if not trunk_graph.has_node(u):
-                        trunk_graph.add_node(
-                            u, x=road_network.nodes[u]["x"], y=road_network.nodes[u]["y"]
-                        )
-                    if not trunk_graph.has_node(v):
-                        trunk_graph.add_node(
-                            v, x=road_network.nodes[v]["x"], y=road_network.nodes[v]["y"]
-                        )
-                    if not trunk_graph.has_edge(u, v):
-                        trunk_graph.add_edge(u, v)
-            except nx.NetworkXNoPath:
-                continue
+        trunk_graph = self._build_shortest_path_trunk(
+            road_network, tr_road_node, parcel_road_nodes
+        )
 
-        # 4. Extract a tree (remove cycles) via DFS from transformer
-        if trunk_graph.nodes and tr_road_node in trunk_graph:
-            dfs_edges = list(nx.dfs_edges(trunk_graph, source=tr_road_node))
-            tree = nx.Graph()
-            for u, v in dfs_edges:
-                tree.add_node(u, **trunk_graph.nodes[u])
-                tree.add_node(v, **trunk_graph.nodes[v])
-                tree.add_edge(u, v)
-            if tr_road_node not in tree:
-                tree.add_node(tr_road_node, **trunk_graph.nodes[tr_road_node])
-            trunk_graph = tree
-
-        # 5. Copy trunk into sec_graph with UNIQUE node IDs (same locations)
-        road_to_sec = {}  # map road node ID → new sec node ID
+        # Copy trunk into sec_graph with unique node IDs
+        sec_graph = nx.Graph()
+        road_to_sec: dict[str, str] = {}
         for node in trunk_graph.nodes:
             new_id = str(uuid.uuid4())
             sec_graph.add_node(
@@ -423,29 +389,72 @@ class TrunkBranchStrategy(SecondaryNetworkStrategy):
         for u, v in trunk_graph.edges:
             sec_graph.add_edge(road_to_sec[u], road_to_sec[v])
 
-        # 6. Tap each parcel as a lateral off its nearest trunk node
+        # Tap each parcel as a lateral off its nearest trunk node
         for point, road_node in zip(group.points, parcel_road_nodes):
             load_name = str(uuid.uuid4())
             sec_graph.add_node(load_name, x=point[0], y=point[1])
-
-            # Connect to the corresponding trunk node
-            if road_node in road_to_sec:
-                sec_graph.add_edge(load_name, road_to_sec[road_node])
-            elif road_to_sec:
-                # Find closest trunk node
-                trunk_pts = [
-                    (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"])
-                    for n in road_to_sec.values()
-                ]
-                nearest = get_nearest_points(trunk_pts, [point])
-                closest_sec = [
-                    n
-                    for n in road_to_sec.values()
-                    if (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"]) == tuple(nearest[0])
-                ][0]
-                sec_graph.add_edge(load_name, closest_sec)
+            tap_node = self._find_tap_node(road_node, road_to_sec, sec_graph, point)
+            if tap_node:
+                sec_graph.add_edge(load_name, tap_node)
 
         return sec_graph
+
+    @staticmethod
+    def _add_path_edges(trunk_graph: nx.Graph, road_network: nx.Graph, path: list[str]) -> None:
+        """Add edges along a path from road_network into trunk_graph."""
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            if not trunk_graph.has_node(u):
+                trunk_graph.add_node(u, x=road_network.nodes[u]["x"], y=road_network.nodes[u]["y"])
+            if not trunk_graph.has_node(v):
+                trunk_graph.add_node(v, x=road_network.nodes[v]["x"], y=road_network.nodes[v]["y"])
+            if not trunk_graph.has_edge(u, v):
+                trunk_graph.add_edge(u, v)
+
+    @staticmethod
+    def _build_shortest_path_trunk(
+        road_network: nx.Graph, source: str, targets: list[str]
+    ) -> nx.Graph:
+        """Build a DFS tree from shortest paths between source and targets."""
+        trunk_graph = nx.Graph()
+        for target in targets:
+            if target == source:
+                continue
+            try:
+                path = nx.shortest_path(road_network, source, target)
+                TrunkBranchStrategy._add_path_edges(trunk_graph, road_network, path)
+            except nx.NetworkXNoPath:
+                continue
+
+        # Extract a tree (remove cycles) via DFS
+        if trunk_graph.nodes and source in trunk_graph:
+            dfs_edges = list(nx.dfs_edges(trunk_graph, source=source))
+            tree = nx.Graph()
+            for u, v in dfs_edges:
+                tree.add_node(u, **trunk_graph.nodes[u])
+                tree.add_node(v, **trunk_graph.nodes[v])
+                tree.add_edge(u, v)
+            if source not in tree:
+                tree.add_node(source, **trunk_graph.nodes[source])
+            return tree
+        return trunk_graph
+
+    @staticmethod
+    def _find_tap_node(
+        road_node: str, road_to_sec: dict[str, str], sec_graph: nx.Graph, point
+    ) -> str | None:
+        """Find the sec_graph node to connect a parcel lateral to."""
+        if road_node in road_to_sec:
+            return road_to_sec[road_node]
+        if road_to_sec:
+            trunk_pts = [
+                (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"]) for n in road_to_sec.values()
+            ]
+            nearest = get_nearest_points(trunk_pts, [point])
+            for n in road_to_sec.values():
+                if (sec_graph.nodes[n]["x"], sec_graph.nodes[n]["y"]) == tuple(nearest[0]):
+                    return n
+        return None
 
     def _build_geometric_trunk_branch(self, group: GroupModel) -> nx.Graph:
         """Fallback: geometric trunk-branch when no road data available."""

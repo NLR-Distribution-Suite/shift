@@ -195,6 +195,13 @@ function bindImpedancePreset(presetSelect, factorInput) {
   });
 }
 
+function validateFixLoopInputs({ vmMinPu, vmMaxPu, impedanceReductionFactor }) {
+  if (!Number.isFinite(vmMinPu) || !Number.isFinite(vmMaxPu) || vmMinPu >= vmMaxPu)
+    throw new Error("Voltage limits are invalid. Ensure vm_min_pu < vm_max_pu.");
+  if (!Number.isFinite(impedanceReductionFactor) || impedanceReductionFactor <= 0 || impedanceReductionFactor >= 1)
+    throw new Error("Impedance reduction factor must be > 0 and < 1.");
+}
+
 async function runIterativeFixLoop({
   systemName,
   solver,
@@ -204,16 +211,7 @@ async function runIterativeFixLoop({
   vmMaxPu,
   impedanceReductionFactor,
 }) {
-  if (!Number.isFinite(vmMinPu) || !Number.isFinite(vmMaxPu) || vmMinPu >= vmMaxPu) {
-    throw new Error("Voltage limits are invalid. Ensure vm_min_pu < vm_max_pu.");
-  }
-  if (
-    !Number.isFinite(impedanceReductionFactor) ||
-    impedanceReductionFactor <= 0 ||
-    impedanceReductionFactor >= 1
-  ) {
-    throw new Error("Impedance reduction factor must be > 0 and < 1.");
-  }
+  validateFixLoopInputs({ vmMinPu, vmMaxPu, impedanceReductionFactor });
 
   let selectedSolver = (solver || "ldf").trim().toLowerCase();
   let latestResult = null;
@@ -721,6 +719,21 @@ document.getElementById("fetchParcelsBtn").addEventListener("click", async () =>
   }
 });
 
+function validateClusterInputs({ targetAreaSqft, dedicatedAreaSqft, targetKva, dedicatedLoadKva, maxSecondaryLengthFt, numClusters }) {
+  if (!Number.isFinite(targetAreaSqft) || targetAreaSqft <= 0)
+    throw new Error("Target area per transformer must be a positive number.");
+  if (!Number.isFinite(dedicatedAreaSqft) || dedicatedAreaSqft <= 0)
+    throw new Error("Dedicated transformer threshold area must be a positive number.");
+  if (!Number.isFinite(targetKva) || targetKva <= 0)
+    throw new Error("Target transformer loading must be a positive number.");
+  if (!Number.isFinite(dedicatedLoadKva) || dedicatedLoadKva <= 0)
+    throw new Error("Dedicated transformer threshold load must be a positive number.");
+  if (!Number.isFinite(maxSecondaryLengthFt) || maxSecondaryLengthFt <= 0)
+    throw new Error("Max secondary reach must be a positive number.");
+  if (!Number.isFinite(numClusters) || numClusters <= 0)
+    throw new Error("Number of clusters must be a positive number.");
+}
+
 document.getElementById("clusterBtn").addEventListener("click", async () => {
   try {
     if (!lastParcels.length) {
@@ -740,24 +753,7 @@ document.getElementById("clusterBtn").addEventListener("click", async () => {
     const maxSecondaryLengthFt = parseNumericInput(maxSecondaryLengthInput.value);
     const numClusters = parseNumericInput(clusterCountInput.value);
 
-    if (!Number.isFinite(targetAreaSqft) || targetAreaSqft <= 0) {
-      throw new Error("Target area per transformer must be a positive number.");
-    }
-    if (!Number.isFinite(dedicatedAreaSqft) || dedicatedAreaSqft <= 0) {
-      throw new Error("Dedicated transformer threshold area must be a positive number.");
-    }
-    if (!Number.isFinite(targetKva) || targetKva <= 0) {
-      throw new Error("Target transformer loading must be a positive number.");
-    }
-    if (!Number.isFinite(dedicatedLoadKva) || dedicatedLoadKva <= 0) {
-      throw new Error("Dedicated transformer threshold load must be a positive number.");
-    }
-    if (!Number.isFinite(maxSecondaryLengthFt) || maxSecondaryLengthFt <= 0) {
-      throw new Error("Max secondary reach must be a positive number.");
-    }
-    if (!Number.isFinite(numClusters) || numClusters <= 0) {
-      throw new Error("Number of clusters must be a positive number.");
-    }
+    validateClusterInputs({ targetAreaSqft, dedicatedAreaSqft, targetKva, dedicatedLoadKva, maxSecondaryLengthFt, numClusters });
 
     const payload = {
       strategy,
@@ -1125,6 +1121,58 @@ document.getElementById("qConfigPbfBtn").addEventListener("click", async () => {
   }
 });
 
+async function fetchParcelsForQuickBuild(polygonPoints) {
+  try {
+    const result = await api("/api/parcels/fetch-local", { polygon: polygonPoints });
+    log({ parcels_source: "local_pbf", count: result.count });
+    return result;
+  } catch {
+    const result = await api("/api/parcels/fetch", { polygon: polygonPoints });
+    log({ parcels_source: "overpass", count: result.count });
+    return result;
+  }
+}
+
+async function buildQuickGraphAndSystem({ polygonPoints, sourcePoint, systemName, catalogPath, parcelResult, qTransformerTypeSelect, qTransformerKvaInput, qPrimaryKvInput, qSecondaryKvInput }) {
+  const SQFT_TO_M2 = 0.09290304;
+  const clusterResult = await api("/api/clusters/build", {
+    strategy: "area_aware",
+    parcels: parcelResult.parcels,
+    points: parcelResult.parcels.map(p => {
+      const g = Array.isArray(p.geometry) ? p.geometry[0] : p.geometry;
+      return { longitude: g.longitude, latitude: g.latitude };
+    }),
+    target_area_per_transformer_m2: 54000 * SQFT_TO_M2,
+    dedicated_transformer_area_m2: 22000 * SQFT_TO_M2,
+    num_clusters: 5,
+  });
+
+  const graphResult = await api("/api/graph/build", {
+    groups: clusterResult.clusters.map(c => ({ center: c.center, points: c.points })),
+    source_location: sourcePoint,
+    polygon: polygonPoints,
+    network_type: "balanced_default",
+    secondary_strategy: "DelaunayStrategy",
+    buffer_meters: 20,
+    secondary_buffer_meters: 50,
+    offline: true,
+  });
+
+  if (graphResult.geometry) drawGraph(graphResult.geometry);
+
+  const sysResult = await api("/api/system/build-full", {
+    graph_id: graphResult.summary.graph_id,
+    system_name: systemName,
+    transformer_type: qTransformerTypeSelect.value,
+    transformer_capacity_kva: Number(qTransformerKvaInput.value),
+    primary_voltage_kv: Number(qPrimaryKvInput.value),
+    secondary_voltage_kv: Number(qSecondaryKvInput.value),
+    catalog_path: catalogPath,
+  });
+
+  return { clusterResult, graphResult, sysResult };
+}
+
 // Quick Build button
 document.getElementById("quickBuildBtn").addEventListener("click", async () => {
   try {
@@ -1136,16 +1184,7 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
     document.getElementById("qStatus").textContent = "Fetching parcels...";
     log({ quick_build: "started", system_name: systemName });
 
-    // Try local PBF first, fall back to Overpass
-    let parcelResult;
-    try {
-      parcelResult = await api("/api/parcels/fetch-local", { polygon: polygonPoints });
-      log({ parcels_source: "local_pbf", count: parcelResult.count });
-    } catch {
-      document.getElementById("qStatus").textContent = "Local PBF unavailable, trying Overpass...";
-      parcelResult = await api("/api/parcels/fetch", { polygon: polygonPoints });
-      log({ parcels_source: "overpass", count: parcelResult.count });
-    }
+    const parcelResult = await fetchParcelsForQuickBuild(polygonPoints);
 
     if (!parcelResult.parcels || !parcelResult.parcels.length) {
       throw new Error("No parcels found in this area.");
@@ -1153,47 +1192,9 @@ document.getElementById("quickBuildBtn").addEventListener("click", async () => {
 
     document.getElementById("qStatus").textContent = `${parcelResult.count} parcels → building clusters...`;
 
-    // Cluster
-    const SQFT_TO_M2 = 0.09290304;
-    const clusterResult = await api("/api/clusters/build", {
-      strategy: "area_aware",
-      parcels: parcelResult.parcels,
-      points: parcelResult.parcels.map(p => {
-        const g = Array.isArray(p.geometry) ? p.geometry[0] : p.geometry;
-        return { longitude: g.longitude, latitude: g.latitude };
-      }),
-      target_area_per_transformer_m2: 54000 * SQFT_TO_M2,
-      dedicated_transformer_area_m2: 22000 * SQFT_TO_M2,
-      num_clusters: 5,
-    });
-
-    document.getElementById("qStatus").textContent = `${clusterResult.count} clusters → building graph...`;
-
-    // Build graph (offline)
-    const graphResult = await api("/api/graph/build", {
-      groups: clusterResult.clusters.map(c => ({ center: c.center, points: c.points })),
-      source_location: sourcePoint,
-      polygon: polygonPoints,
-      network_type: "balanced_default",
-      secondary_strategy: "DelaunayStrategy",
-      buffer_meters: 20,
-      secondary_buffer_meters: 50,
-      offline: true,
-    });
-
-    if (graphResult.geometry) drawGraph(graphResult.geometry);
-
-    document.getElementById("qStatus").textContent = `Graph: ${graphResult.summary.node_count} nodes → building GDM...`;
-
-    // Build system
-    const sysResult = await api("/api/system/build-full", {
-      graph_id: graphResult.summary.graph_id,
-      system_name: systemName,
-      transformer_type: qTransformerTypeSelect.value,
-      transformer_capacity_kva: Number(qTransformerKvaInput.value),
-      primary_voltage_kv: Number(qPrimaryKvInput.value),
-      secondary_voltage_kv: Number(qSecondaryKvInput.value),
-      catalog_path: catalogPath,
+    const { clusterResult, graphResult, sysResult } = await buildQuickGraphAndSystem({
+      polygonPoints, sourcePoint, systemName, catalogPath, parcelResult,
+      qTransformerTypeSelect, qTransformerKvaInput, qPrimaryKvInput, qSecondaryKvInput,
     });
 
     log(sysResult);
