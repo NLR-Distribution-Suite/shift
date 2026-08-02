@@ -3,11 +3,42 @@
 from __future__ import annotations
 
 import json
+import uuid
 
+from loguru import logger
 from mcp.server import MCPServer
 from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
+
+
+def _create_run_best_effort(
+    *,
+    tool: str,
+    run_type: str,
+    run_id: str,
+    session_id: str,
+    payload: dict,
+) -> None:
+    """Best-effort runstore mirror — never raises.
+
+    Records a ``create_run`` row when a runstore is configured
+    (``DIST_STACK_RUNSTORE_DB`` set); otherwise logs a warning and returns so
+    tool behavior is identical to a runstore-less deployment.
+    """
+    try:
+        from dist_stack.runstore import RunstoreUnavailableError, create_run
+
+        create_run(
+            tool=tool,
+            run_type=run_type,
+            run_id=run_id,
+            status="succeeded",
+            session_id=session_id,
+            payload=payload,
+        )
+    except RunstoreUnavailableError as exc:
+        logger.warning(f"runstore unavailable — skipping run record: {exc}")
 
 
 def _get_missing_mappers(app: AppContext, graph_id: str) -> list[str]:
@@ -74,6 +105,19 @@ def register(mcp: MCPServer) -> None:
             )
             system = builder.get_system()
             app.systems[system_name] = system
+
+            _create_run_best_effort(
+                tool="build_system",
+                run_type="shift_feeder",
+                run_id=f"feeder_{uuid.uuid4().hex[:12]}",
+                session_id=app.session_id,
+                payload={
+                    "graph_id": graph_id,
+                    "system_name": system_name,
+                    "node_count": app.graph_meta[graph_id].node_count,
+                    "edge_count": app.graph_meta[graph_id].edge_count,
+                },
+            )
 
             return json.dumps(
                 {

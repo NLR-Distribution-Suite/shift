@@ -30,6 +30,9 @@ class AppContext:
     ``ctx.request_context.lifespan_context`` inside any tool function.
     """
 
+    # -- session --------------------------------------------------------------
+    session_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+
     # -- graphs ---------------------------------------------------------------
     graphs: dict[str, DistributionGraph] = field(default_factory=dict)
     graph_meta: dict[str, GraphMeta] = field(default_factory=dict)

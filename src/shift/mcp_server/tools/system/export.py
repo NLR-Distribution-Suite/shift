@@ -7,11 +7,43 @@ import tempfile
 from pathlib import Path
 
 from dist_stack.manifest import write_manifest
+from loguru import logger
 from mcp.server import MCPServer
 from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
 from shift.version import VERSION as __version__
+
+
+def _attach_export_artifact_best_effort(
+    *,
+    session_id: str,
+    system_name: str,
+    export_path,
+) -> None:
+    """Best-effort runstore mirror — never raises.
+
+    Attaches the exported artifact (and its manifest sidecar) to the most
+    recent ``shift_feeder`` run of this session — preferring the run whose
+    payload built ``system_name``. No-ops with a warning when no runstore is
+    configured or no matching run exists.
+    """
+    try:
+        from dist_stack.runstore import RunstoreUnavailableError, attach_artifact, list_runs
+
+        runs = list_runs(run_type="shift_feeder", session_id=session_id, limit=10)
+        if not runs:
+            logger.warning(
+                "runstore: no shift_feeder run found for session — skipping artifact attach"
+            )
+            return
+        run = next(
+            (r for r in runs if (r.payload or {}).get("system_name") == system_name),
+            runs[0],
+        )
+        attach_artifact(run.run_id, str(export_path))
+    except RunstoreUnavailableError as exc:
+        logger.warning(f"runstore unavailable — skipping artifact attach: {exc}")
 
 
 def register(mcp: MCPServer) -> None:
@@ -65,6 +97,12 @@ def register(mcp: MCPServer) -> None:
                 package="shift",
                 package_version=__version__,
                 config={"system_name": system_name},
+            )
+
+            _attach_export_artifact_best_effort(
+                session_id=app.session_id,
+                system_name=system_name,
+                export_path=out,
             )
 
             return json.dumps(
