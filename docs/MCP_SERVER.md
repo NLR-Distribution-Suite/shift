@@ -1,6 +1,6 @@
 # MCP Server
 
-NREL-shift includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes the full framework to LLM-based agents. The server provides 33 tools, 3 resource templates, and 3 prompt templates that enable AI assistants to build synthetic distribution feeder models interactively.
+NREL-shift includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes the full framework to LLM-based agents. The server provides 36 tools, 3 resource templates, and 3 prompt templates that enable AI assistants to build synthetic distribution feeder models interactively.
 
 ## Installation
 
@@ -48,7 +48,7 @@ src/shift/mcp_server/
 ├── serializers.py       # JSON serialization helpers
 ├── tools/
 │   ├── data_acquisition/
-│   │   ├── parcels.py       # fetch_parcels, fetch_parcels_in_polygon
+│   │   ├── parcels.py       # set_local_pbf, fetch_parcels, fetch_parcels_in_polygon
 │   │   ├── roads.py         # fetch_road_network
 │   │   └── clustering.py    # cluster_parcels
 │   ├── graph/
@@ -56,7 +56,9 @@ src/shift/mcp_server/
 │   │   ├── nodes.py         # add_node, remove_node, get_node
 │   │   ├── edges.py         # add_edge, remove_edge, get_edge
 │   │   ├── query.py         # query_graph
-│   │   └── builder.py       # build_graph_from_groups
+│   │   ├── builder.py       # build_graph_from_groups
+│   │   ├── layout_existing.py # layout_existing_graph
+│   │   └── route_existing.py  # route_existing_graph
 │   ├── mapper/
 │   │   ├── phase.py         # configure_phase_mapper, get_phase_mapping
 │   │   ├── voltage.py       # configure_voltage_mapper, get_voltage_mapping
@@ -94,15 +96,17 @@ Key state containers:
 
 ## Tools Reference
 
-### Data Acquisition (3 tools)
+### Data Acquisition (5 tools)
 
 | Tool | Description |
 |------|-------------|
+| `set_local_pbf` | Configure a local OpenStreetMap `.pbf` file for offline parcel/road extraction |
 | `fetch_parcels` | Fetch building parcels from OpenStreetMap for a given location |
 | `fetch_parcels_in_polygon` | Fetch building parcels within a polygon boundary |
 | `fetch_road_network` | Fetch the road network from OpenStreetMap around a location |
+| `cluster_parcels` | Cluster geographic points into groups using K-means |
 
-### Graph Management (8 tools)
+### Graph Management (13 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -117,6 +121,8 @@ Key state containers:
 | `get_edge` | Get details of a specific edge |
 | `query_graph` | Query information about a distribution graph (summary, nodes, edges, vsource, dfs_tree) |
 | `build_graph_from_groups` | Build a complete distribution graph from parcel groups using the PRSG algorithm |
+| `layout_existing_graph` | Embed an abstract graph inside a polygon with a force-directed layout |
+| `route_existing_graph` | Route an existing abstract graph onto parcel geography |
 
 ### Mappers (6 tools)
 
@@ -129,7 +135,7 @@ Key state containers:
 | `configure_equipment_mapper` | Configure equipment mapping using an equipment catalog |
 | `get_equipment_mapping` | Get equipment assignments for all edges |
 
-### System (3 tools)
+### System (4 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -142,7 +148,6 @@ Key state containers:
 
 | Tool | Description |
 |------|-------------|
-| `cluster_parcels` | Cluster geographic points into groups using K-means |
 | `distance_between_points` | Calculate geodesic distance between two points |
 | `polygon_from_points` | Create a polygon boundary from a set of points |
 | `create_mesh_network` | Create a regular 2D mesh/grid network |

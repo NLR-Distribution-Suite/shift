@@ -29,7 +29,7 @@ dependencies = [
   "scikit-learn",
   "plotly",
   "geopy",
-  "grid-data-models==2.3.7",
+  "grid-data-models~=2.3.7",
   "importlib-metadata",
   "loguru",
   "defusedxml",

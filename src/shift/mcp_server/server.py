@@ -19,9 +19,7 @@ from shift.mcp_server.state import AppContext
 _DOC_FILES: dict[str, str] = {
     "readme": "README.md",
     "quickstart": "QUICKSTART.md",
-    "changelog": "CHANGELOG.md",
     "contributing": "CONTRIBUTING.md",
-    "improvements": "IMPROVEMENTS.md",
     "api_reference": "docs/API_REFERENCE.md",
     # Usage guides
     "usage/index": "docs/usage/index.md",
@@ -57,9 +55,7 @@ _DOC_FILES: dict[str, str] = {
 _DOC_DESCRIPTIONS: dict[str, str] = {
     "readme": "Project overview, features, and installation instructions.",
     "quickstart": "Quick-start guide to get up and running.",
-    "changelog": "Release history and version changes.",
     "contributing": "Contribution guidelines.",
-    "improvements": "Planned improvements and roadmap.",
     "api_reference": "Full API reference documentation.",
     "usage/index": "Usage guides table of contents.",
     "usage/building_graph": "How to build a distribution graph.",
