@@ -6,10 +6,12 @@ import json
 import tempfile
 from pathlib import Path
 
+from dist_stack.manifest import write_manifest
 from mcp.server import MCPServer
 from mcp.server.mcpserver.context import Context
 
 from shift.mcp_server.state import AppContext
+from shift.version import VERSION as __version__
 
 
 def register(mcp: MCPServer) -> None:
@@ -51,6 +53,19 @@ def register(mcp: MCPServer) -> None:
             out = Path(output_path)
             out.parent.mkdir(parents=True, exist_ok=True)
             system.to_json(out)
+
+            # Standalone provenance sidecar, always written regardless of any
+            # model-registry env var. If a registry record were available from
+            # registration, model_id/model_version would be included here.
+            write_manifest(
+                out,
+                artifact_type="shift_feeder",
+                tool="export_system_json",
+                tool_version=__version__,
+                package="shift",
+                package_version=__version__,
+                config={"system_name": system_name},
+            )
 
             return json.dumps(
                 {

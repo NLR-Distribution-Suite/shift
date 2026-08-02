@@ -67,6 +67,31 @@ class TestExportSystemJson:
         result = parse(fn(ctx=mock_ctx, system_name="nope"))
         assert result["success"] is False
 
+    def test_writes_provenance_manifest(self, mock_ctx, tmp_path):
+        """Export should write a .manifest.json provenance sidecar next to the JSON."""
+        from dist_stack.manifest import has_manifest, read_manifest
+
+        from gdm.distribution.distribution_system import DistributionSystem
+
+        app = mock_ctx.request_context.lifespan_context
+        app.systems["feeder1"] = DistributionSystem(
+            name="feeder1", auto_add_composed_components=True
+        )
+
+        output_path = tmp_path / "feeder1.json"
+        fn = _mcp._tool_manager._tools["export_system_json"].fn
+        result = parse(fn(ctx=mock_ctx, system_name="feeder1", output_path=str(output_path)))
+        assert result["success"] is True
+
+        assert output_path.is_file()
+        assert has_manifest(output_path)
+
+        manifest = read_manifest(output_path)
+        assert manifest.artifact_type == "shift_feeder"
+        assert manifest.tool == "export_system_json"
+        assert manifest.package == "shift"
+        assert manifest.config == {"system_name": "feeder1"}
+
 
 # ---------------------------------------------------------------------------
 # Utilities — geo
