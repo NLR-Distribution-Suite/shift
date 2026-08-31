@@ -1,5 +1,4 @@
 from infrasys.quantities import Distance
-import socket
 import networkx as nx
 from loguru import logger
 import osmnx as ox
@@ -7,6 +6,7 @@ from shapely import Polygon
 
 from shift.data_model import GeoLocation
 from shift.exceptions import InvalidInputError
+from shift.utils.overpass import fetch_with_overpass_failover
 
 DIST_TYPE = "bbox"
 NETWORK_TYPE = "drive"
@@ -28,79 +28,6 @@ _PUBLIC_ROAD_TYPES = {
     "unclassified",
     "living_street",
 }
-
-# Public Overpass mirrors for automatic failover.
-_OVERPASS_MIRRORS = [
-    "https://overpass-api.de/api",
-    "https://overpass.kumi.systems/api",
-    "https://maps.mail.ru/osm/tools/overpass/api",
-]
-
-
-def _get_default_overpass_url() -> str | None:
-    """Return the currently configured OSMnx Overpass endpoint."""
-    if hasattr(ox.settings, "overpass_url"):
-        return getattr(ox.settings, "overpass_url")
-    if hasattr(ox.settings, "overpass_endpoint"):
-        return getattr(ox.settings, "overpass_endpoint")
-    return None
-
-
-def _set_overpass_url(url: str) -> None:
-    """Set the OSMnx Overpass endpoint."""
-    if hasattr(ox.settings, "overpass_url"):
-        setattr(ox.settings, "overpass_url", url)
-    elif hasattr(ox.settings, "overpass_endpoint"):
-        setattr(ox.settings, "overpass_endpoint", url)
-
-
-def _fetch_graph_with_failover(fetch_fn):
-    """Try fetch_fn across Overpass mirrors, returning first success."""
-    original_url = _get_default_overpass_url()
-
-    # Build endpoint list: current default + mirrors (deduplicated).
-    endpoints = [original_url] if original_url else []
-    for mirror in _OVERPASS_MIRRORS:
-        if mirror not in endpoints:
-            endpoints.append(mirror)
-
-    # Save original settings.
-    old_timeout = getattr(ox.settings, "timeout", None)
-    old_http_timeout = getattr(ox.settings, "requests_timeout", None)
-
-    # Set short timeouts so unreachable mirrors fail fast.
-    if old_timeout is not None:
-        ox.settings.timeout = 5
-    if hasattr(ox.settings, "requests_timeout"):
-        ox.settings.requests_timeout = 5
-
-    # Hard Python socket timeout as backstop (5s).
-    old_socket_timeout = socket.getdefaulttimeout()
-    socket.setdefaulttimeout(5)
-
-    last_exc = None
-    for endpoint in endpoints:
-        _set_overpass_url(endpoint)
-        try:
-            logger.debug(f"Trying Overpass endpoint: {endpoint}")
-            result = fetch_fn()
-            logger.debug(f"Success via {endpoint}")
-            socket.setdefaulttimeout(old_socket_timeout)
-            return result
-        except Exception as exc:  # noqa: BLE001
-            last_exc = exc
-            logger.debug(f"Overpass endpoint {endpoint} failed: {exc!s:.120}")
-
-    # Restore original settings before raising.
-    socket.setdefaulttimeout(old_socket_timeout)
-    if original_url:
-        _set_overpass_url(original_url)
-    if old_timeout is not None:
-        ox.settings.timeout = old_timeout
-    if old_http_timeout is not None and hasattr(ox.settings, "requests_timeout"):
-        ox.settings.requests_timeout = old_http_timeout
-    raise last_exc  # type: ignore[misc]
-
 
 # Path to local PBF file (set via environment or config)
 _LOCAL_PBF_PATH: str | None = None
@@ -342,7 +269,7 @@ def get_road_network(
     if pbf_result is not None:
         return pbf_result
 
-    graph = _fetch_graph_with_failover(
+    graph, _, _, _ = fetch_with_overpass_failover(
         lambda: _fetch_road_graph_by_location(location, max_distance)
     )
 
