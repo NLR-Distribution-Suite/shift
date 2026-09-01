@@ -27,7 +27,7 @@ def _substations_cache_path(polygon: Polygon) -> Path | None:
     """Return the cache file for ``polygon`` when a cache dir is configured."""
     if _SUBSTATIONS_CACHE_DIR is None:
         return None
-    key = hashlib.sha1(polygon.wkt.encode("utf-8")).hexdigest()[:16]
+    key = hashlib.sha256(polygon.wkt.encode("utf-8")).hexdigest()[:16]
     return _SUBSTATIONS_CACHE_DIR / f"substations_{key}.geojson"
 
 
