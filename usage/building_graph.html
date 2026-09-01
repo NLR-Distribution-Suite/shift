@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Building a Distribution Graph &#8212; NREL-shift</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'usage/building_graph';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Updating Branch Types" href="updating_branch_type.html" />
+    <link rel="prev" title="Fetching Parcels" href="fetching_parcels.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">NREL-shift</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    NREL-shift
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">What's New</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../new_features.html">Version 0.8.0</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User Guides</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../example/example.html">Synthetic Distribution Model Building with SHIFT</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Usage Guides</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="complete_example.html">Complete Example: Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fetching_parcels.html">Fetching Parcels</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Building a Distribution Graph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="updating_branch_type.html">Updating Branch Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mapping_phases.html">Mapping Phases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mapping_voltages.html">Mapping Voltages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mapping_equipment.html">Mapping Equipment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building_system.html">Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ui_studio.html">UI Studio</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../references/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../references/data_model.html">Data Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/dist_graph.html">DistributionGraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/openstreet_graph.html">OpenStreetGraphBuilder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/prsg.html">PRSG (Primary-Secondary Road-Network Graph Builder)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/routing_strategies.html">Routing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/secondary_strategies.html">Secondary Network Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/phase_mapper.html">Phase Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/voltage_mapper.html">Voltage Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/equipment_mapper.html">Equipment Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/system_builder.html">Distribution System Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/openstreet_parcel.html">Parcel Fetching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/openstreet_roads.html">Road Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/clustering.html">K-Means Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/nearest_points.html">Nearest Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/polygon_from_points.html">Polygon from Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/mesh_network.html">Mesh Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/split_edges.html">Splitting Edges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/plot_manager.html">PlotManager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/plots.html">Plot Helpers</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../API_REFERENCE.html">API Quick Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../MCP_SERVER.html">MCP Server</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/usage/building_graph.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Building a Distribution Graph</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cluster-parcels">Cluster Parcels</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-the-graph-with-prsg">Build the Graph with PRSG</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-routing-strategy">Choosing a Routing Strategy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-secondary-network-strategy">Choosing a Secondary Network Strategy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-the-graph">Visualize the Graph</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-step">Next Step</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="building-a-distribution-graph">
+<h1>Building a Distribution Graph<a class="headerlink" href="#building-a-distribution-graph" title="Link to this heading">#</a></h1>
+<p>Once you have a list of <code class="docutils literal notranslate"><span class="pre">ParcelModel</span></code> objects (see <a class="reference internal" href="fetching_parcels.html"><span class="std std-doc">Fetching Parcels</span></a>), the next step is to construct a <code class="docutils literal notranslate"><span class="pre">DistributionGraph</span></code> — the connectivity model of nodes and edges that represents the distribution network.</p>
+<section id="cluster-parcels">
+<h2>Cluster Parcels<a class="headerlink" href="#cluster-parcels" title="Link to this heading">#</a></h2>
+<p>First, cluster parcels into groups. Each cluster center becomes a candidate distribution transformer location. A common heuristic is roughly two customers per transformer, but you can adjust this to match your design criteria.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParcelModel</span><span class="p">,</span> <span class="n">GeoLocation</span><span class="p">,</span> <span class="n">get_kmeans_clusters</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_parcel_points</span><span class="p">(</span><span class="n">parcels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParcelModel</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GeoLocation</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Extract a single GeoLocation per parcel (centroid for polygons)."""</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">el</span><span class="o">.</span><span class="n">geometry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">el</span><span class="o">.</span><span class="n">geometry</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">el</span><span class="o">.</span><span class="n">geometry</span>
+        <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">parcels</span>
+    <span class="p">]</span>
+
+<span class="n">num_clusters</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parcels</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">clusters</span> <span class="o">=</span> <span class="n">get_kmeans_clusters</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">,</span> <span class="n">_get_parcel_points</span><span class="p">(</span><span class="n">parcels</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="build-the-graph-with-prsg">
+<h2>Build the Graph with PRSG<a class="headerlink" href="#build-the-graph-with-prsg" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">PRSG</span></code> (Primary–Secondary Road-network Graph) builds the distribution graph in two steps:</p>
+<ol class="arabic simple">
+<li><p><strong>Primary network</strong> — derived by routing through the road network in the area using a configurable <a class="reference internal" href="../references/routing_strategies.html#shift.RoutingStrategy" title="shift.RoutingStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">RoutingStrategy</span></code></a>.</p></li>
+<li><p><strong>Secondary network</strong> — built using a configurable <a class="reference internal" href="../references/secondary_strategies.html#shift.SecondaryNetworkStrategy" title="shift.SecondaryNetworkStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SecondaryNetworkStrategy</span></code></a> connecting transformer locations to nearby customer parcels.</p></li>
+</ol>
+<p>The node closest to <code class="docutils literal notranslate"><span class="pre">source_location</span></code> is treated as the substation.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="n">PRSG</span><span class="p">,</span> <span class="n">GeoLocation</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">PRSG</span><span class="p">(</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">clusters</span><span class="p">,</span>
+    <span class="n">source_location</span><span class="o">=</span><span class="n">GeoLocation</span><span class="p">(</span><span class="o">-</span><span class="mf">97.3</span><span class="p">,</span> <span class="mf">32.75</span><span class="p">),</span>  <span class="c1"># substation coordinates</span>
+<span class="p">)</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_distribution_graph</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="choosing-a-routing-strategy">
+<h2>Choosing a Routing Strategy<a class="headerlink" href="#choosing-a-routing-strategy" title="Link to this heading">#</a></h2>
+<p>By default, PRSG uses a Steiner tree with uniform edge weights. For more realistic
+routing that follows shorter physical paths, use <a class="reference internal" href="../references/routing_strategies.html#shift.WeightedSteinerTreeStrategy" title="shift.WeightedSteinerTreeStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedSteinerTreeStrategy</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="n">PRSG</span><span class="p">,</span> <span class="n">WeightedSteinerTreeStrategy</span><span class="p">,</span> <span class="n">GeoLocation</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">PRSG</span><span class="p">(</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">clusters</span><span class="p">,</span>
+    <span class="n">source_location</span><span class="o">=</span><span class="n">GeoLocation</span><span class="p">(</span><span class="o">-</span><span class="mf">97.3</span><span class="p">,</span> <span class="mf">32.75</span><span class="p">),</span>
+    <span class="n">routing_strategy</span><span class="o">=</span><span class="n">WeightedSteinerTreeStrategy</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_distribution_graph</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Available routing strategies (see <a class="reference internal" href="../references/routing_strategies.html"><span class="std std-doc">Routing Strategies</span></a> for details):</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">SteinerTreeStrategy</span></code></strong> — Steiner tree, uniform weights (default, backward-compatible)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">WeightedSteinerTreeStrategy</span></code></strong> — Steiner tree, geodesic distance weights <span class="bibtex-citation" id="id1">[<a class="reference internal" href="../references/routing_strategies.html#id11" title="M. Ali, K. Prakash, C. Macana, M.Q. Raza, A.K. Bashir, and H. Pota. Modeling synthetic power distribution network and datasets with industrial validation. Journal of Industrial Information Integration, 31:100407, 2023. doi:10.1016/j.jii.2022.100407.">APM+23</a>]</span></p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ShortestPathTreeStrategy</span></code></strong> — Dijkstra shortest-path tree from source <span class="bibtex-citation" id="id2">[<a class="reference internal" href="../references/routing_strategies.html#id11" title="M. Ali, K. Prakash, C. Macana, M.Q. Raza, A.K. Bashir, and H. Pota. Modeling synthetic power distribution network and datasets with industrial validation. Journal of Industrial Information Integration, 31:100407, 2023. doi:10.1016/j.jii.2022.100407.">APM+23</a>]</span></p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">MinimumSpanningTreeStrategy</span></code></strong> — MST over terminals via shortest paths</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">FullRoadGraphStrategy</span></code></strong> — Full road network as topology <span class="bibtex-citation" id="id3">[<a class="reference internal" href="../references/routing_strategies.html#id11" title="M. Ali, K. Prakash, C. Macana, M.Q. Raza, A.K. Bashir, and H. Pota. Modeling synthetic power distribution network and datasets with industrial validation. Journal of Industrial Information Integration, 31:100407, 2023. doi:10.1016/j.jii.2022.100407.">APM+23</a>]</span></p></li>
+</ul>
+</section>
+<section id="choosing-a-secondary-network-strategy">
+<h2>Choosing a Secondary Network Strategy<a class="headerlink" href="#choosing-a-secondary-network-strategy" title="Link to this heading">#</a></h2>
+<p>By default, PRSG uses a rectangular mesh grid with Steiner tree reduction. For
+simpler radial laterals or road-aware secondary routing:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="n">PRSG</span><span class="p">,</span> <span class="n">RadialStrategy</span><span class="p">,</span> <span class="n">GeoLocation</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">PRSG</span><span class="p">(</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">clusters</span><span class="p">,</span>
+    <span class="n">source_location</span><span class="o">=</span><span class="n">GeoLocation</span><span class="p">(</span><span class="o">-</span><span class="mf">97.3</span><span class="p">,</span> <span class="mf">32.75</span><span class="p">),</span>
+    <span class="n">secondary_strategy</span><span class="o">=</span><span class="n">RadialStrategy</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">get_distribution_graph</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Available secondary strategies (see <a class="reference internal" href="../references/secondary_strategies.html"><span class="std std-doc">Secondary Strategies</span></a> for details):</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">MeshSteinerStrategy</span></code></strong> — Rectangular mesh + Steiner tree (default)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">RadialStrategy</span></code></strong> — Direct star connection from transformer to loads</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">DelaunayStrategy</span></code></strong> — Delaunay triangulation + MST pruning</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">OpenStreetSecondaryStrategy</span></code></strong> — Routes secondary along actual roads <span class="bibtex-citation" id="id4">[<a class="reference internal" href="../references/routing_strategies.html#id12" title="Henrique O. Caetano, Rahul K. Gupta, Cristhian G. da R. de Oliveira, João B.A. London Jr, and Carlos Dias Maciel. Bayesian model-based generation of synthetic unbalanced distribution networks incorporating reliability indices. Electric Power Systems Research, 262:113604, 2026. doi:10.1016/j.epsr.2026.113604.">CGdO+26</a>]</span></p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">HubLineStrategy</span></code></strong> — k-NN consumer-to-transformer assignment <span class="bibtex-citation" id="id5">[<a class="reference internal" href="../references/routing_strategies.html#id11" title="M. Ali, K. Prakash, C. Macana, M.Q. Raza, A.K. Bashir, and H. Pota. Modeling synthetic power distribution network and datasets with industrial validation. Journal of Industrial Information Integration, 31:100407, 2023. doi:10.1016/j.jii.2022.100407.">APM+23</a>]</span></p></li>
+</ul>
+</section>
+<section id="visualize-the-graph">
+<h2>Visualize the Graph<a class="headerlink" href="#visualize-the-graph" title="Link to this heading">#</a></h2>
+<p>You can overlay the distribution graph on the parcel plot from the previous step:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_distribution_graph_to_plot</span><span class="p">,</span> <span class="n">PlotManager</span><span class="p">,</span> <span class="n">GeoLocation</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">osmnx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ox</span>
+
+<span class="n">center</span> <span class="o">=</span> <span class="n">GeoLocation</span><span class="p">(</span><span class="o">*</span><span class="nb">reversed</span><span class="p">(</span><span class="n">ox</span><span class="o">.</span><span class="n">geocode</span><span class="p">(</span><span class="s2">"Fort Worth, TX"</span><span class="p">)))</span>
+<span class="n">plot_manager</span> <span class="o">=</span> <span class="n">PlotManager</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">)</span>
+<span class="n">add_distribution_graph_to_plot</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">plot_manager</span><span class="p">)</span>
+<span class="n">plot_manager</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="next-step">
+<h2>Next Step<a class="headerlink" href="#next-step" title="Link to this heading">#</a></h2>
+<p>Proceed to <a class="reference internal" href="updating_branch_type.html"><span class="std std-doc">Updating Branch Types</span></a> to replace generic branch types with the specific equipment models your simulation requires.</p>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./usage"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="fetching_parcels.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Fetching Parcels</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="updating_branch_type.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Updating Branch Types</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cluster-parcels">Cluster Parcels</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-the-graph-with-prsg">Build the Graph with PRSG</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-routing-strategy">Choosing a Routing Strategy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-secondary-network-strategy">Choosing a Secondary Network Strategy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-the-graph">Visualize the Graph</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-step">Next Step</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Aadil Latif,Kapil Duwadi, Erik Pohl
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, National Laboratory of the Rockies (NLR).
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
