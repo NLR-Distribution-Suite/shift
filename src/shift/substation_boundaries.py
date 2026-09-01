@@ -116,7 +116,61 @@ def _voronoi_cell(points: list[Point], index: int, start_box: Polygon) -> Polygo
     return cell
 
 
-def substation_boundaries(polygon: Polygon) -> gpd.GeoDataFrame:
+def _merge_close_substations(
+    substations: gpd.GeoDataFrame,
+    repr_points: list[Point],
+    merge_distance_deg: float,
+) -> tuple[gpd.GeoDataFrame, list[Point]]:
+    """Merge substations closer than ``merge_distance_deg`` into their most informative member.
+
+    OSM often maps the same physical substation as several near-coincident ways.
+    Each cluster keeps the substation with the largest geometry (most detailed
+    footprint); its representative point is used for the Voronoi split.
+
+    Returns the filtered substations GeoDataFrame and matching representative
+    points (``jitter_duplicates`` is not applied to the merged result).
+    """
+    if merge_distance_deg <= 0.0:
+        return substations, repr_points
+
+    keep_indices: list[int] = []
+    cluster_centers: list[Point] = []
+    for index, (point, geometry) in enumerate(zip(repr_points, substations.geometry)):
+        merged = False
+        for center in cluster_centers:
+            if point.distance(center) <= merge_distance_deg:
+                merged = True
+                break
+        if not merged:
+            keep_indices.append(index)
+            cluster_centers.append(point)
+
+    # Keep, per cluster, the member with the largest geometry area.
+    final_indices: list[int] = []
+    for keep in keep_indices:
+        members = [
+            i
+            for i, point in enumerate(repr_points)
+            if point.distance(repr_points[keep]) <= merge_distance_deg
+        ]
+        best = max(members, key=lambda i: float(substations.geometry.iloc[i].area))
+        final_indices.append(best)
+
+    final_indices = sorted(set(final_indices))
+    merged_gdf = substations.iloc[final_indices].reset_index(drop=True)
+    merged_points = [repr_points[i] for i in final_indices]
+    logger.info(
+        "Merged {} substation(s) to {} within {:.4f} deg.",
+        len(substations),
+        len(final_indices),
+        merge_distance_deg,
+    )
+    return merged_gdf, merged_points
+
+
+def substation_boundaries(
+    polygon: Polygon, *, merge_distance_deg: float = 0.0
+) -> gpd.GeoDataFrame:
     """Split ``polygon`` into non-overlapping cells, one per substation inside it.
 
     Substations are fetched from OpenStreetMap via :func:`shift.substation.get_substations`.
@@ -130,6 +184,10 @@ def substation_boundaries(polygon: Polygon) -> gpd.GeoDataFrame:
     polygon : shapely Polygon
         Service-area polygon in WGS84 (EPSG:4326). Must be a valid, simple
         Polygon (not MultiPolygon).
+    merge_distance_deg : float
+        When > 0, substations closer than this distance (degrees, WGS84) are
+        merged into the member with the largest footprint. Use this to dedupe
+        near-coincident OSM substation ways. Defaults to 0 (no merging).
 
     Returns
     -------
@@ -155,6 +213,10 @@ def substation_boundaries(polygon: Polygon) -> gpd.GeoDataFrame:
     repr_points = [
         _clamp_to_polygon(_representative_point(g), polygon) for g in substations.geometry
     ]
+    substations, repr_points = _merge_close_substations(
+        substations, repr_points, merge_distance_deg
+    )
+    n = len(substations)
     points = _jitter_duplicates(repr_points)
 
     if n == 1:

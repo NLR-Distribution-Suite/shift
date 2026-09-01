@@ -92,6 +92,20 @@ from shift.mapper.transformer_voltage_mapper import (
 
 from shift.system_builder import DistributionSystemBuilder
 
+from shift.feeder_models import (
+    CatalogConfig,
+    ClusteringConfig,
+    ExportConfig,
+    FeederConfig,
+    FeederModelConfig,
+    PRSGConfig,
+    ParcelSourceConfig,
+    VoltageConfig,
+    build_feeder_model,
+    build_feeder_models,
+    load_catalog,
+)
+
 from shift.exceptions import (
     ShiftException,
     GraphError,

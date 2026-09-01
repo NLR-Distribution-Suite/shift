@@ -327,8 +327,8 @@ class TestHubLineStrategy:
 
 
 class TestOpenStreetSecondaryStrategy:
-    def test_uses_full_road_graph_and_deterministic_terminals(self, monkeypatch, simple_group):
-        """OpenStreet secondary should disable MST and preserve first-seen terminal order."""
+    def test_uses_road_tree_and_deterministic_terminals(self, monkeypatch, simple_group):
+        """OpenStreet secondary reduces to a road tree and keeps first-seen terminal order."""
         calls = {"reduce_to_mst": None, "terminals": None}
 
         # Small deterministic candidate graph
@@ -361,7 +361,7 @@ class TestOpenStreetSecondaryStrategy:
         strategy = OpenStreetSecondaryStrategy(routing_strategy=CaptureRouting())
         strategy.build(simple_group)
 
-        assert calls["reduce_to_mst"] is False
+        assert calls["reduce_to_mst"] is True
         # First-seen unique order from [a,b,a,c,b] should be [a,b,c]
         assert calls["terminals"] == ["a", "b", "c"]
 

@@ -46,6 +46,92 @@ def get_local_pbf() -> str | None:
     return _LOCAL_PBF_PATH
 
 
+def _write_osm_xml(
+    output_path: str,
+    nodes_data: dict[int, tuple[float, float, dict[str, str]]],
+    selected_ways: dict[int, list[int]],
+    way_tags: dict[int, dict[str, str]],
+) -> None:
+    """Write nodes and ways as an OSM XML file (tag values safely escaped)."""
+    import re
+    from xml.sax.saxutils import escape
+
+    _invalid_xml_chars = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+    def _xml_attr(value: str) -> str:
+        return escape(_invalid_xml_chars.sub("", str(value)), {'"': "&quot;", "'": "&apos;"})
+
+    with open(output_path, "w", encoding="utf-8") as fpointer:
+        fpointer.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+        fpointer.write('<osm version="0.6" generator="pyosmium">\n')
+        for node_id, (lon, lat, tags) in sorted(nodes_data.items()):
+            fpointer.write(f'<node id="{node_id}" lat="{lat}" lon="{lon}">')
+            for key, value in tags.items():
+                fpointer.write(f'<tag k="{_xml_attr(key)}" v="{_xml_attr(value)}"/>')
+            fpointer.write("</node>\n")
+        for way_id, refs in sorted(selected_ways.items()):
+            fpointer.write(f'<way id="{way_id}">')
+            for key, value in way_tags[way_id].items():
+                fpointer.write(f'<tag k="{_xml_attr(key)}" v="{_xml_attr(value)}"/>')
+            for ref in refs:
+                fpointer.write(f'<nd ref="{ref}"/>')
+            fpointer.write("</way>\n")
+        fpointer.write("</osm>\n")
+
+
+def _extract_from_pbf_pyosmium(bbox: tuple[float, float, float, float], output_path: str) -> str:
+    """Extract a bbox from the configured PBF using pyosmium (no CLI required).
+
+    Mirrors ``osmium extract --strategy=complete_ways``: keeps every way that
+    has at least one node inside the bbox along with all of that way's nodes.
+    Falls back to pyosmium when the ``osmium`` command-line tool is unavailable.
+    """
+    import osmium
+
+    min_lon, min_lat, max_lon, max_lat = bbox
+
+    nodes_in_bbox: set[int] = set()
+    way_node_refs: dict[int, list[int]] = {}
+    way_tags: dict[int, dict[str, str]] = {}
+
+    class _WayCollector(osmium.SimpleHandler):
+        def node(self, node):
+            loc = node.location
+            if min_lon <= loc.lon <= max_lon and min_lat <= loc.lat <= max_lat:
+                nodes_in_bbox.add(node.id)
+
+        def way(self, way):
+            way_node_refs[way.id] = [node.ref for node in way.nodes]
+            way_tags[way.id] = {tag.k: tag.v for tag in way.tags}
+
+    _WayCollector().apply_file(_LOCAL_PBF_PATH)
+
+    selected_ways = {
+        way_id: refs
+        for way_id, refs in way_node_refs.items()
+        if any(ref in nodes_in_bbox for ref in refs)
+    }
+    needed_nodes: set[int] = set()
+    for refs in selected_ways.values():
+        needed_nodes.update(refs)
+
+    nodes_data: dict[int, tuple[float, float, dict[str, str]]] = {}
+
+    class _NodeCollector(osmium.SimpleHandler):
+        def node(self, node):
+            if node.id in needed_nodes:
+                nodes_data[node.id] = (
+                    node.location.lon,
+                    node.location.lat,
+                    {tag.k: tag.v for tag in node.tags},
+                )
+
+    _NodeCollector().apply_file(_LOCAL_PBF_PATH)
+
+    _write_osm_xml(output_path, nodes_data, selected_ways, way_tags)
+    return output_path
+
+
 def extract_from_pbf(
     bbox: tuple[float, float, float, float], output_path: str | None = None
 ) -> str:
@@ -63,6 +149,7 @@ def extract_from_pbf(
     str
         Path to the extracted OSM XML file.
     """
+    import shutil
     import subprocess
     import tempfile
 
@@ -71,6 +158,10 @@ def extract_from_pbf(
 
     if output_path is None:
         output_path = tempfile.mkstemp(suffix=".osm")[1]
+
+    if shutil.which("osmium") is None:
+        logger.debug("osmium CLI not found; using pyosmium extraction.")
+        return _extract_from_pbf_pyosmium(bbox, output_path)
 
     min_lon, min_lat, max_lon, max_lat = bbox
     bbox_str = f"{min_lon},{min_lat},{max_lon},{max_lat}"
@@ -97,7 +188,10 @@ def extract_from_pbf(
 
 def get_road_network_from_xml(xml_path: str, reduce_to_mst: bool = True) -> nx.Graph:
     """Load road network from a local OSM XML file, filtered to public roads only."""
-    graph = ox.graph_from_xml(xml_path)
+    # Keep every node and skip simplification: osmnx's default
+    # largest-component + simplify collapses small/fragmented extracts (e.g. a
+    # tight residential bbox) down to an empty graph.
+    graph = ox.graph_from_xml(xml_path, retain_all=True, simplify=False)
     undirected = graph.to_undirected()
 
     # Filter to public road types (PBF/XML loads everything)
@@ -121,6 +215,9 @@ def get_road_network_from_xml(xml_path: str, reduce_to_mst: bool = True) -> nx.G
         )
 
     if reduce_to_mst:
+        if undirected.number_of_nodes() > 0:
+            largest = max(nx.connected_components(undirected), key=len)
+            undirected = undirected.subgraph(largest).copy()
         return nx.minimum_spanning_tree(undirected)
     return undirected
 
@@ -277,5 +374,8 @@ def get_road_network(
     undirected = _filter_to_public_roads(undirected)
 
     if reduce_to_mst:
+        if undirected.number_of_nodes() > 0:
+            largest = max(nx.connected_components(undirected), key=len)
+            undirected = undirected.subgraph(largest).copy()
         return nx.minimum_spanning_tree(undirected)
     return undirected

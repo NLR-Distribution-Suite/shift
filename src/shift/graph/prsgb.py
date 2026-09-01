@@ -226,9 +226,16 @@ class PRSG(OpenStreetGraphBuilder):
             logger.warning("Road network unavailable — using geometric primary fallback")
             return self._build_geometric_primary()
 
+        if not road_network_.nodes:
+            logger.warning("Road network empty — using geometric primary fallback")
+            return self._build_geometric_primary()
+
         # Snap transformer centers to road if enabled
-        if self.snap_to_roads:
-            self.groups = self._snap_groups_to_road(road_network_)
+        try:
+            if self.snap_to_roads:
+                self.groups = self._snap_groups_to_road(road_network_)
+        except Exception:
+            logger.warning("Road snapping failed; continuing with unsnapped groups.")
 
         road_network_ = self._extend_road_network(road_network_, self.groups)
         road_network = split_network_edges(road_network_, split_length=Distance(150, "m"))
@@ -236,8 +243,12 @@ class PRSG(OpenStreetGraphBuilder):
             road_network,
             [c.center for c in self.groups] + [self.source_location],
         )
-        primary_network = self._route_network(
-            road_network,
-            nearest_nodes,
-        )
+        try:
+            primary_network = self._route_network(
+                road_network,
+                nearest_nodes,
+            )
+        except Exception:
+            logger.warning("Road-based primary routing failed; using geometric primary fallback.")
+            return self._build_geometric_primary()
         return primary_network

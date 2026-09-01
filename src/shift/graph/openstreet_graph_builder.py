@@ -356,24 +356,29 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
             dist_network.add_edge(new_tr_node_name, nearest_sec_node)
             new_transformer_nodes.append(new_tr_node_name)
 
+        # Connect any disconnected components to the source component so the
+        # resulting DistributionGraph is fully radial. Secondary-network or road
+        # artifacts can leave small islands (e.g. a load pair) disconnected;
+        # each island is attached to the nearest node in the source component.
+        dist_network = self._connect_components_to_source(dist_network, substation_node)
+
         # Enforce radial topology: extract DFS tree from source node
         # This removes any cycles while keeping all nodes reachable from source.
-        if nx.is_connected(dist_network):
-            dfs_edges = list(nx.dfs_edges(dist_network, source=substation_node))
-            radial = nx.Graph()
-            for u, v in dfs_edges:
-                radial.add_node(u, **dist_network.nodes[u])
-                radial.add_node(v, **dist_network.nodes[v])
-                radial.add_edge(u, v)
-            # Add any isolated nodes (shouldn't happen but safety)
-            for node in dist_network.nodes:
-                if node not in radial:
-                    radial.add_node(node, **dist_network.nodes[node])
-            logger.debug(
-                f"Radial enforcement: {dist_network.number_of_edges()} edges → "
-                f"{radial.number_of_edges()} edges (removed {dist_network.number_of_edges() - radial.number_of_edges()} cycles)"
-            )
-            dist_network = radial
+        dfs_edges = list(nx.dfs_edges(dist_network, source=substation_node))
+        radial = nx.Graph()
+        for u, v in dfs_edges:
+            radial.add_node(u, **dist_network.nodes[u])
+            radial.add_node(v, **dist_network.nodes[v])
+            radial.add_edge(u, v)
+        # Add any isolated nodes (shouldn't happen but safety)
+        for node in dist_network.nodes:
+            if node not in radial:
+                radial.add_node(node, **dist_network.nodes[node])
+        logger.debug(
+            f"Radial enforcement: {dist_network.number_of_edges()} edges → "
+            f"{radial.number_of_edges()} edges (removed {dist_network.number_of_edges() - radial.number_of_edges()} cycles)"
+        )
+        dist_network = radial
 
         return self._get_distribution_graph_from_network(
             dist_network,
@@ -383,3 +388,46 @@ class OpenStreetGraphBuilder(BaseGraphBuilder):
                 DistributionLoad: list(self.point_node_mapping.values()),
             },
         )
+
+    @staticmethod
+    def _connect_components_to_source(graph: nx.Graph, source_node: str) -> nx.Graph:
+        """Attach every disconnected component of ``graph`` to the source component.
+
+        For each island, the pair of nodes (one in the island, one in the already
+        connected set) closest by euclidean distance is joined by an edge. Returns
+        a connected copy of ``graph`` when it was not already connected.
+        """
+        if graph.number_of_nodes() == 0 or nx.is_connected(graph):
+            return graph
+
+        graph = graph.copy()
+        connected = set(nx.node_connected_component(graph, source_node))
+        for component in list(nx.connected_components(graph)):
+            if component == connected:
+                continue
+            comp_nodes = [(n, graph.nodes[n]) for n in component]
+            conn_nodes = [(n, graph.nodes[n]) for n in connected]
+
+            best_pair = None
+            for n, n_data in comp_nodes:
+                if "x" not in n_data or "y" not in n_data:
+                    continue
+                for m, m_data in conn_nodes:
+                    if "x" not in m_data or "y" not in m_data:
+                        continue
+                    distance = (n_data["x"] - m_data["x"]) ** 2 + (n_data["y"] - m_data["y"]) ** 2
+                    if best_pair is None or distance < best_pair[0]:
+                        best_pair = (distance, n, m)
+
+            if best_pair is None:
+                graph.add_edge(next(iter(component)), next(iter(connected)))
+            else:
+                _, n, m = best_pair
+                graph.add_edge(n, m)
+            connected |= set(component)
+
+        logger.debug(
+            "Connected {} disconnected component(s) to the source.",
+            len(list(nx.connected_components(graph))) - 1,
+        )
+        return graph

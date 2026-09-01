@@ -161,6 +161,9 @@ def _normalize_geometry(geometry_dict: dict) -> dict:
     if geom_type in ("linestring", "multilinestring"):
         key = "paths" if "paths" in geometry_dict else "coordinates"
         return {"type": geometry_dict["type"], "coordinates": geometry_dict[key]}
+    # ArcGIS points omit the "type" key and use {x, y, spatialReference}.
+    if "x" in geometry_dict and "y" in geometry_dict:
+        return {"type": "Point", "coordinates": [geometry_dict["x"], geometry_dict["y"]]}
     return geometry_dict
 
 
