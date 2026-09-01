@@ -21,7 +21,7 @@ from loguru import logger
 
 from plot_feeders import build_figure, discover_feeder_files
 
-DEFAULT_FOLDER = Path(__file__).resolve().parents[1] / ".dump" / "trinidad_co"
+DEFAULT_FOLDER = Path(__file__).resolve().parents[1] / "outputs" / "trinidad_co"
 DEFAULT_OUTPUT = DEFAULT_FOLDER / "trinidad_substations.html"
 
 
