@@ -4,6 +4,7 @@ import importlib
 fastapi = pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient
+from infrasys import Location
 
 from shift.ui_api.app import create_app
 
@@ -187,7 +188,15 @@ def test_ui_api_auto_build_feeders(client: TestClient, monkeypatch):
     ui_app_module = importlib.import_module("shift.ui_api.app")
 
     class DummyBuilder:
-        def __init__(self, groups, source_location, buffer, routing_strategy, secondary_strategy):
+        def __init__(
+            self,
+            groups,
+            source_location,
+            buffer,
+            routing_strategy,
+            secondary_strategy,
+            **kwargs,
+        ):
             self._groups = groups
 
         def get_distribution_graph(self):
@@ -199,6 +208,7 @@ def test_ui_api_auto_build_feeders(client: TestClient, monkeypatch):
                 def __init__(self, name):
                     self.name = name
                     self.assets = set()
+                    self.location = Location(x=-97.33, y=32.75)
 
             class DummyGraph:
                 vsource_node = "src"
@@ -208,6 +218,9 @@ def test_ui_api_auto_build_feeders(client: TestClient, monkeypatch):
 
                 def get_edges(self):
                     return []
+
+                def get_dfs_tree(self):
+                    return self
 
             return DummyGraph()
 
@@ -259,7 +272,15 @@ def test_ui_api_graph_build_auto_density_selects_openstreet(client: TestClient, 
     class DummyBuilder:
         captured_secondary = None
 
-        def __init__(self, groups, source_location, buffer, routing_strategy, secondary_strategy):
+        def __init__(
+            self,
+            groups,
+            source_location,
+            buffer,
+            routing_strategy,
+            secondary_strategy,
+            **kwargs,
+        ):
             DummyBuilder.captured_secondary = type(secondary_strategy).__name__
 
         def get_distribution_graph(self):
@@ -267,6 +288,7 @@ def test_ui_api_graph_build_auto_density_selects_openstreet(client: TestClient, 
                 def __init__(self, name):
                     self.name = name
                     self.assets = set()
+                    self.location = Location(x=-97.33, y=32.75)
 
             class DummyGraph:
                 vsource_node = "src"
@@ -276,6 +298,9 @@ def test_ui_api_graph_build_auto_density_selects_openstreet(client: TestClient, 
 
                 def get_edges(self):
                     return []
+
+                def get_dfs_tree(self):
+                    return self
 
             return DummyGraph()
 
@@ -318,7 +343,15 @@ def test_ui_api_graph_build_auto_density_selects_delaunay(client: TestClient, mo
     class DummyBuilder:
         captured_secondary = None
 
-        def __init__(self, groups, source_location, buffer, routing_strategy, secondary_strategy):
+        def __init__(
+            self,
+            groups,
+            source_location,
+            buffer,
+            routing_strategy,
+            secondary_strategy,
+            **kwargs,
+        ):
             DummyBuilder.captured_secondary = type(secondary_strategy).__name__
 
         def get_distribution_graph(self):
@@ -326,6 +359,7 @@ def test_ui_api_graph_build_auto_density_selects_delaunay(client: TestClient, mo
                 def __init__(self, name):
                     self.name = name
                     self.assets = set()
+                    self.location = Location(x=-97.33, y=32.75)
 
             class DummyGraph:
                 vsource_node = "src"
@@ -335,6 +369,9 @@ def test_ui_api_graph_build_auto_density_selects_delaunay(client: TestClient, mo
 
                 def get_edges(self):
                     return []
+
+                def get_dfs_tree(self):
+                    return self
 
             return DummyGraph()
 

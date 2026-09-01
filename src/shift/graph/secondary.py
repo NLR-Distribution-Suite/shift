@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 import uuid
 
 import networkx as nx
+from loguru import logger
 from shapely import MultiPoint, Point
 from infrasys.quantities import Distance
 
@@ -231,11 +232,13 @@ class OpenStreetSecondaryStrategy(SecondaryNetworkStrategy):
         all_points = [group.center] + list(group.points)
         polygon = get_polygon_from_points(all_points, self.buffer)
         try:
-            road_network = get_road_network(polygon, reduce_to_mst=False)
+            # reduce_to_mst=True keeps a connected road tree, which keeps the
+            # Steiner routing fast while still following roads.
+            road_network = get_road_network(polygon, reduce_to_mst=True)
             road_network = split_network_edges(road_network, split_length=Distance(50, "m"))
         except (ValueError, EmptyGraphError):
-            # No road data available for this area — fall back to radial.
-            return RadialStrategy().build(group)
+            # No road data available for this area — fall back to a mesh grid.
+            return MeshSteinerStrategy().build(group)
 
         # Find nearest road nodes to each load point and center
         nearest_nodes = _get_nearest_nodes_from_graph(road_network, all_points)
@@ -246,7 +249,12 @@ class OpenStreetSecondaryStrategy(SecondaryNetworkStrategy):
             return nx.Graph(road_network.subgraph(unique_terminals))
 
         # Route using the configured strategy
-        return self.routing_strategy.route(road_network, unique_terminals)
+        try:
+            return self.routing_strategy.route(road_network, unique_terminals)
+        except Exception:
+            # Disconnected terminals / degenerate road graphs — mesh fallback.
+            logger.warning("Road-based secondary routing failed; falling back to mesh.")
+            return MeshSteinerStrategy().build(group)
 
 
 class HubLineStrategy(SecondaryNetworkStrategy):

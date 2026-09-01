@@ -1,6 +1,6 @@
 # MCP Server
 
-NREL-shift includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes the full framework to LLM-based agents. The server provides 33 tools, 3 resource templates, and 3 prompt templates that enable AI assistants to build synthetic distribution feeder models interactively.
+NREL-shift includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes the full framework to LLM-based agents. The server provides 36 tools, 3 resource templates, and 3 prompt templates that enable AI assistants to build synthetic distribution feeder models interactively.
 
 ## Installation
 
@@ -94,15 +94,17 @@ Key state containers:
 
 ## Tools Reference
 
-### Data Acquisition (3 tools)
+### Data Acquisition (5 tools)
 
 | Tool | Description |
 |------|-------------|
 | `fetch_parcels` | Fetch building parcels from OpenStreetMap for a given location |
 | `fetch_parcels_in_polygon` | Fetch building parcels within a polygon boundary |
+| `set_local_pbf` | Configure a local OpenStreetMap PBF for offline parcel extraction |
 | `fetch_road_network` | Fetch the road network from OpenStreetMap around a location |
+| `cluster_parcels` | Cluster geographic points into groups |
 
-### Graph Management (8 tools)
+### Graph Management (13 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -117,6 +119,8 @@ Key state containers:
 | `get_edge` | Get details of a specific edge |
 | `query_graph` | Query information about a distribution graph (summary, nodes, edges, vsource, dfs_tree) |
 | `build_graph_from_groups` | Build a complete distribution graph from parcel groups using the PRSG algorithm |
+| `route_existing_graph` | Route an existing graph using a selected routing strategy |
+| `layout_existing_graph` | Layout an existing graph using a selected secondary-network strategy |
 
 ### Mappers (6 tools)
 
@@ -129,7 +133,7 @@ Key state containers:
 | `configure_equipment_mapper` | Configure equipment mapping using an equipment catalog |
 | `get_equipment_mapping` | Get equipment assignments for all edges |
 
-### System (3 tools)
+### System (4 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -142,7 +146,6 @@ Key state containers:
 
 | Tool | Description |
 |------|-------------|
-| `cluster_parcels` | Cluster geographic points into groups using K-means |
 | `distance_between_points` | Calculate geodesic distance between two points |
 | `polygon_from_points` | Create a polygon boundary from a set of points |
 | `create_mesh_network` | Create a regular 2D mesh/grid network |
@@ -222,6 +225,6 @@ Agent:
 
 ## Known Limitations
 
-- **Pydantic version conflict**: `grid-data-models==2.2.1` pins `pydantic~=2.10`, while `mcp[cli]` may require `pydantic>=2.12`. You may need to relax the pin or install in a separate environment.
+- Install the MCP extra in the same environment as SHIFT with `pip install -e ".[mcp]"`; the current project pins `grid-data-models==2.3.7` and declares `mcp>=2.0` as an optional dependency.
 - **Network-dependent tools**: `fetch_parcels`, `fetch_parcels_in_polygon`, and `fetch_road_network` require internet access to query OpenStreetMap.
 - **Single session**: The stdio transport serves one client at a time. For multi-client scenarios, wrap with a proxy or use the SSE transport.

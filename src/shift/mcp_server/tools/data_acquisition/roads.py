@@ -7,6 +7,7 @@ import json
 from mcp.server import MCPServer
 
 from shift.mcp_server.serializers import serialize_nx_graph_summary
+from shift.utils.overpass import OverpassFallbackError
 
 
 def register(mcp: MCPServer) -> None:
@@ -72,5 +73,14 @@ def register(mcp: MCPServer) -> None:
 
             return json.dumps(summary)
 
+        except OverpassFallbackError as exc:
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "overpass_failovers": exc.errors,
+                    "debug_log": exc.debug_log,
+                }
+            )
         except Exception as exc:
             return json.dumps({"success": False, "error": str(exc)})

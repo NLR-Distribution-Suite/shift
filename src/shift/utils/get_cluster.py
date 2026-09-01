@@ -115,6 +115,10 @@ def centroid_and_area_m2(geometry) -> tuple[GeoLocation, float]:
     Vertices may be dicts with ``longitude``/``latitude`` keys or objects
     exposing those attributes. Point geometries yield an area of ``0.0``.
     """
+    # GeoLocation is a NamedTuple, so it must be detected as a point before the
+    # generic tuple branch (which would otherwise iterate over its floats).
+    if hasattr(geometry, "longitude") and hasattr(geometry, "latitude"):
+        return GeoLocation(float(geometry.longitude), float(geometry.latitude)), 0.0
     if isinstance(geometry, (list, tuple)):
         lons = [_point_lonlat(p)[0] for p in geometry]
         lats = [_point_lonlat(p)[1] for p in geometry]

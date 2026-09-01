@@ -12,6 +12,12 @@ from shift.data_model import (
 )
 
 from shift.parcel import parcels_from_location, parcels_from_geodataframe, parcels_from_csv
+from shift.parcel_sources import (
+    parcels_from_gis,
+    ParcelFieldMapper,
+    OSMParcelFieldMapper,
+    GISParcelFieldMapper,
+)
 
 from shift.openstreet_roads import get_road_network
 
@@ -35,6 +41,12 @@ from shift.utils.get_cluster import (
 )
 from shift.utils.geo import region_area_km2_from_polygon, region_area_km2_from_points
 from shift.utils.polygon_from_points import get_polygon_from_points
+from shift.feeder_boundaries import (
+    estimate_feeder_count_by_area,
+    feeder_counts_for_cells,
+    split_substation_into_feeders,
+    split_substations_into_feeders,
+)
 from shift.utils.nearest_points import get_nearest_points
 
 from shift.graph.prsgb import PRSG
@@ -79,6 +91,20 @@ from shift.mapper.transformer_voltage_mapper import (
 )
 
 from shift.system_builder import DistributionSystemBuilder
+
+from shift.feeder_models import (
+    CatalogConfig,
+    ClusteringConfig,
+    ExportConfig,
+    FeederConfig,
+    FeederModelConfig,
+    PRSGConfig,
+    ParcelSourceConfig,
+    VoltageConfig,
+    build_feeder_model,
+    build_feeder_models,
+    load_catalog,
+)
 
 from shift.exceptions import (
     ShiftException,

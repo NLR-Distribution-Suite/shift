@@ -30,6 +30,7 @@ dependencies = [
   "plotly",
   "geopy",
   "grid-data-models==2.3.7",
+  "gdmloader",
   "importlib-metadata",
   "loguru",
   "defusedxml",

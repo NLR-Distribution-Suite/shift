@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from infrasys.quantities import Distance
 from shapely.geometry import Polygon
 from geopandas import GeoDataFrame
@@ -7,7 +9,8 @@ import shapely
 
 from shift.data_model import ParcelModel, GeoLocation
 from shift.exceptions import InvalidInputError
-from shift.openstreet_roads import _fetch_graph_with_failover
+from shift.parcel_sources import OSMParcelFieldMapper, ParcelFieldMapper
+from shift.utils.overpass import fetch_with_overpass_failover
 
 from pathlib import Path
 
@@ -15,39 +18,48 @@ import pandas as pd
 from shapely import wkt
 
 
-def parcels_from_geodataframe(geo_df: GeoDataFrame) -> list[ParcelModel]:
-    """Function to convert geopandas dataframe to list of parcel models.
+def parcels_from_geodataframe(
+    geo_df: GeoDataFrame,
+    mapper: ParcelFieldMapper | None = None,
+    name_column: str | None = None,
+) -> list[ParcelModel]:
+    """Convert a GeoDataFrame into a list of :class:`ParcelModel`.
+
+    The four parcel attributes (``building_type``, ``city``, ``state``,
+    ``postal_address``) are populated through ``mapper`` which maps source
+    columns onto those fields. Defaults to :class:`OSMParcelFieldMapper`, so the
+    OSM/Overpass behavior is unchanged. When ``name_column`` is provided its
+    cleaned value becomes the parcel name; otherwise parcels are named
+    ``parcel_{index}``.
 
     Args:
-        geo_df (GeoDataFrame): Geo dataframe.
+        geo_df (GeoDataFrame): Geo dataframe with a ``geometry`` column.
+        mapper (ParcelFieldMapper | None): Maps source columns to parcel fields.
+        name_column (str | None): Source column to use as the parcel name.
 
     Returns:
         list[ParcelModel]
     """
     logger.info(f"Length of geodataframe: {len(geo_df)}, CRS: {geo_df.crs}")
+    if mapper is None:
+        mapper = OSMParcelFieldMapper()
+
     parcels: list[ParcelModel] = []
-    for idx, geometry in enumerate(geo_df.to_dict(orient="records")):
-        name = f"parcel_{idx}"
-        geometry_obj = geometry["geometry"]
+    for idx, record in enumerate(geo_df.to_dict(orient="records")):
+        geometry_obj = record["geometry"]
+        attrs = mapper.map_record(record)
+        if name_column and name_column in record:
+            value = record[name_column]
+            name = value.strip() if isinstance(value, str) else str(value).strip()
+        else:
+            name = f"parcel_{idx}"
         match geometry_obj.geom_type:
             case "Point":
                 parcels.append(
                     ParcelModel(
                         name=name,
                         geometry=GeoLocation(*list(geometry_obj.coords)[0]),
-                        building_type=geometry["building"]
-                        if "building" in geometry and isinstance(geometry["building"], str)
-                        else "",
-                        city=geometry["addr:city"]
-                        if "addr:city" in geometry and isinstance(geometry["addr:city"], str)
-                        else "",
-                        state=geometry["addr:state"]
-                        if "addr:state" in geometry and isinstance(geometry["addr:state"], str)
-                        else "",
-                        postal_address=geometry["addr:postcode"]
-                        if "addr:postcode" in geometry
-                        and isinstance(geometry["addr:postcode"], str)
-                        else "",
+                        **attrs,
                     )
                 )
             case "Polygon":
@@ -55,19 +67,7 @@ def parcels_from_geodataframe(geo_df: GeoDataFrame) -> list[ParcelModel]:
                     ParcelModel(
                         name=name,
                         geometry=[GeoLocation(*coord) for coord in geometry_obj.exterior.coords],
-                        building_type=geometry["building"]
-                        if "building" in geometry and isinstance(geometry["building"], str)
-                        else "",
-                        city=geometry["addr:city"]
-                        if "addr:city" in geometry and isinstance(geometry["addr:city"], str)
-                        else "",
-                        state=geometry["addr:state"]
-                        if "addr:state" in geometry and isinstance(geometry["addr:state"], str)
-                        else "",
-                        postal_address=geometry["addr:postcode"]
-                        if "addr:postcode" in geometry
-                        and isinstance(geometry["addr:postcode"], str)
-                        else "",
+                        **attrs,
                     )
                 )
             case "MultiPolygon":
@@ -78,19 +78,7 @@ def parcels_from_geodataframe(geo_df: GeoDataFrame) -> list[ParcelModel]:
                             GeoLocation(*coord)
                             for coord in geometry_obj.convex_hull.exterior.coords
                         ],
-                        building_type=geometry["building"]
-                        if "building" in geometry and isinstance(geometry["building"], str)
-                        else "",
-                        city=geometry["addr:city"]
-                        if "addr:city" in geometry and isinstance(geometry["addr:city"], str)
-                        else "",
-                        state=geometry["addr:state"]
-                        if "addr:state" in geometry and isinstance(geometry["addr:state"], str)
-                        else "",
-                        postal_address=geometry["addr:postcode"]
-                        if "addr:postcode" in geometry
-                        and isinstance(geometry["addr:postcode"], str)
-                        else "",
+                        **attrs,
                     )
                 )
             case _:
@@ -151,27 +139,22 @@ def parcels_from_location(
     logger.info(f"Attempting to fetch parcels for {location}")
     tags = {"building": True}
     if isinstance(location, str):
-        return parcels_from_geodataframe(
-            _fetch_graph_with_failover(
-                lambda: ox.features_from_address(
-                    location, tags, dist=max_distance.to("m").magnitude
-                )
-            )
+        graph, _, _, _ = fetch_with_overpass_failover(
+            lambda: ox.features_from_address(location, tags, dist=max_distance.to("m").magnitude)
         )
+        return parcels_from_geodataframe(graph)
     elif isinstance(location, GeoLocation):
-        return parcels_from_geodataframe(
-            _fetch_graph_with_failover(
-                lambda: ox.features_from_point(
-                    list(reversed(location)), tags, dist=max_distance.to("m").magnitude
-                )
+        graph, _, _, _ = fetch_with_overpass_failover(
+            lambda: ox.features_from_point(
+                list(reversed(location)), tags, dist=max_distance.to("m").magnitude
             )
         )
+        return parcels_from_geodataframe(graph)
     elif isinstance(location, list):
-        return parcels_from_geodataframe(
-            _fetch_graph_with_failover(
-                lambda: ox.features_from_polygon(shapely.Polygon(location), tags)
-            )
+        graph, _, _, _ = fetch_with_overpass_failover(
+            lambda: ox.features_from_polygon(shapely.Polygon(location), tags)
         )
+        return parcels_from_geodataframe(graph)
 
 
 def get_parcels_in_polygon(coordinates: list[list[float, float]] | Polygon) -> list[ParcelModel]:

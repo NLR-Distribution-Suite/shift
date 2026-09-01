@@ -20,7 +20,7 @@ from gdm.distribution.equipment import (
     GeometryBranchEquipment,
     LoadEquipment,
 )
-from gdm.distribution.enums import Phase
+from gdm.distribution.enums import Phase, VoltageTypes
 
 import networkx as nx
 
@@ -33,6 +33,7 @@ from shift.graph.distribution_graph import DistributionGraph
 from shift.mapper.base_equipment_mapper import BaseEquipmentMapper
 from shift.mapper.base_phase_mapper import BasePhaseMapper
 from shift.mapper.base_voltage_mapper import BaseVoltageMapper
+from shift.mapper.catalog_utils import phase_voltage_kv
 from shift.constants import EQUIPMENT_TO_CLASS_TYPE
 
 
@@ -87,6 +88,10 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
         """Internal method to get load served downward from this edge."""
         dfs_graph = self.graph.get_dfs_tree()
         parent_node = from_node if dfs_graph.has_edge(from_node, to_node) else to_node
+        if parent_node not in dfs_graph:
+            # Edge outside the source-connected tree (shouldn't happen after
+            # connectivity enforcement); treat as serving no load.
+            return ApparentPower(0, "kilova")
         descendants = list(nx.descendants(dfs_graph, parent_node))
         load_nodes = list(
             self.graph.get_nodes(
@@ -118,16 +123,22 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
     ) -> bool:
         if not EdgeEquipmentMapper._is_phase_compatible(x, num_phase):
             return False
-        wdg_voltages = [wdg.rated_voltage for wdg in x.windings]
-        for v1, v2 in zip(
-            sorted(voltages, reverse=True), sorted(wdg_voltages, reverse=True)[: len(voltages)]
-        ):
+        wdg_voltages = sorted(
+            (phase_voltage_kv(wdg.rated_voltage, wdg.voltage_type) for wdg in x.windings),
+            reverse=True,
+        )
+        req_voltages = sorted((v.to("kilovolt").magnitude for v in voltages), reverse=True)
+        for v1, v2 in zip(req_voltages, wdg_voltages[: len(req_voltages)]):
             if v2 < 0.85 * v1 or v2 >= 1.15 * v1:
                 return False
         return True
 
     def _get_closest_transformer_equipment(
-        self, capacity: ApparentPower, num_phase: int, voltages: list[Voltage]
+        self,
+        capacity: ApparentPower,
+        num_phase: int,
+        voltages: list[Voltage],
+        is_split_phase: bool = False,
     ) -> Component:
         """Internal method to return transformer equipment by capacity."""
 
@@ -135,14 +146,18 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             min_capacity = min([wdg.rated_power.to("kva") for wdg in x.windings])
             if min_capacity < capacity:
                 return False
+            if is_split_phase and (not x.is_center_tapped or len(x.windings) != 3):
+                return False
             if not self._is_phase_compatible(x, num_phase):
                 return False
-            wdg_voltages = [wdg.rated_voltage for wdg in x.windings]
-            for v1, v2 in zip(
-                sorted(voltages, reverse=True), sorted(wdg_voltages, reverse=True)[: len(voltages)]
-            ):
+            wdg_voltages = sorted(
+                (phase_voltage_kv(wdg.rated_voltage, wdg.voltage_type) for wdg in x.windings),
+                reverse=True,
+            )
+            req_voltages = sorted((v.to("kilovolt").magnitude for v in voltages), reverse=True)
+            for v1, v2 in zip(req_voltages, wdg_voltages[: len(req_voltages)]):
                 if v2 < 0.85 * v1 or v2 >= 1.15 * v1:
-                    logger.warning(f"Failed V1 {v1}, V2 {v2}, winding voltages {wdg_voltages}.")
+                    logger.debug(f"Failed V1 {v1}, V2 {v2}, winding voltages {wdg_voltages}.")
                     return False
             return True
 
@@ -158,6 +173,7 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             capacity,
             num_phase,
             voltages,
+            is_split_phase=is_split_phase,
         )
 
     def _synthesize_transformer(
@@ -165,12 +181,24 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
         capacity: ApparentPower,
         num_phase: int,
         voltages: list[Voltage],
+        is_split_phase: bool = False,
     ) -> Component:
         """Synthesize a transformer when no exact catalog match exists."""
         requested_voltages = [round(v.to("kilovolt").magnitude, 6) for v in voltages]
         available_transformers = list(
             self.catalog_sys.get_components(DistributionTransformerEquipment)
         )
+
+        # The gdm_catalog stores only two-winding transformers, so split-phase
+        # (120/240 V center-tapped) units must always be synthesized.
+        if is_split_phase:
+            return self._synthesize_split_phase(
+                available_transformers,
+                capacity,
+                num_phase,
+                voltages,
+                requested_voltages,
+            )
 
         voltage_compatible_candidates = [
             x
@@ -191,6 +219,71 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             voltages,
             requested_voltages,
         )
+
+    def _synthesize_split_phase(
+        self, available_transformers, capacity, num_phase, voltages, requested_voltages
+    ) -> Component:
+        """Synthesize a center-tapped 120/240 V split-phase transformer."""
+        templates = [x for x in available_transformers if self._is_phase_compatible(x, num_phase)]
+        if not templates:
+            msg = f"Equipment of type {DistributionTransformerEquipment} not found in catalog system."
+            raise EquipmentNotFoundError(msg)
+
+        base = sorted(
+            templates,
+            key=lambda x: min(w.rated_power.to("kva").magnitude for w in x.windings),
+        )[-1]
+        required_kva = capacity.to("kva").magnitude
+        target_kva = round(required_kva * 1.05, 6)
+        sorted_req_kv = sorted((v.to("kilovolt").magnitude for v in voltages), reverse=True)
+        primary_kv, secondary_kv = sorted_req_kv[0], sorted_req_kv[-1]
+
+        primary_template = base.windings[0]
+        secondary_template = base.windings[-1]
+        new_windings = []
+        for idx in range(3):
+            template = primary_template if idx == 0 else secondary_template
+            new_windings.append(
+                template.model_copy(
+                    update={
+                        "uuid": uuid4(),
+                        "name": template.name or f"wdg_{idx + 1}",
+                        "rated_power": ApparentPower(target_kva, "kva"),
+                        "rated_voltage": Voltage(
+                            primary_kv if idx == 0 else secondary_kv, "kilovolt"
+                        ),
+                        "voltage_type": VoltageTypes.LINE_TO_GROUND,
+                    }
+                )
+            )
+
+        new_uuid = uuid4()
+        from gdm.distribution.common.sequence_pair import SequencePair
+
+        synthesized = base.model_copy(
+            update={
+                "uuid": new_uuid,
+                "name": f"{base.name}_split_synth_{str(new_uuid)[:8]}",
+                "windings": new_windings,
+                "is_center_tapped": True,
+                "coupling_sequences": [
+                    SequencePair(0, 1),
+                    SequencePair(0, 2),
+                    SequencePair(1, 2),
+                ],
+                "winding_reactances": [0.02, 0.02, 0.01],
+            }
+        )
+        logger.warning(
+            "Synthesized split-phase transformer {} from template {} "
+            "(primary_kv={} secondary_kv={} capacity_kva={}).",
+            synthesized.name,
+            base.name,
+            round(primary_kv, 6),
+            round(secondary_kv, 6),
+            round(required_kva, 6),
+        )
+        return synthesized
 
     def _synthesize_capacity_override(
         self, candidates, capacity, num_phase, requested_voltages
@@ -276,6 +369,7 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
                     "rated_voltage": Voltage(
                         primary_kv if winding is highest_winding else secondary_kv, "kilovolt"
                     ),
+                    "voltage_type": VoltageTypes.LINE_TO_GROUND,
                 }
             )
             for idx, winding in enumerate(base.windings)
@@ -382,11 +476,13 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
                     self.voltage_mapper.node_voltage_mapping[from_node],
                     self.voltage_mapper.node_voltage_mapping[to_node],
                 ]
+                is_split_phase = bool({Phase.S1, Phase.S2} & (from_phases | to_phases))
                 try:
                     edge_equipment_mapper[edge.name] = self._get_closest_transformer_equipment(
                         served_load,
                         num_phase,
                         requested_voltages,
+                        is_split_phase=is_split_phase,
                     )
                 except EquipmentNotFoundError:
                     logger.error(
