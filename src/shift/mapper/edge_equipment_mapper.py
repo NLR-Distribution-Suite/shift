@@ -6,7 +6,7 @@ from loguru import logger
 
 
 from infrasys.component import Component
-from gdm.dataset.dataset_system import DatasetSystem
+from gdm.distribution import DistributionSystem as DatasetSystem
 from gdm.quantities import ApparentPower, Current, Voltage
 from gdm.distribution.components import (
     DistributionTransformer,
