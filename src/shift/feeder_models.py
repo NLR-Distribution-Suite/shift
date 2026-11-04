@@ -8,7 +8,7 @@ The pipeline stitches together the existing building blocks:
    substation cell into feeder cells (area- or parcel-count-based).
 3. Each feeder's ``DistributionGraph`` is built with :class:`PRSG`, using the
    substation point as the power source.
-4. Equipment is right-sized against a :class:`gdm.distribution.CatalogSystem`
+4. Equipment is right-sized against a :class:`gdm.systems.distribution.CatalogSystem`
    loaded through gdmloader (see :func:`load_catalog`), selecting conductors
    and transformers by served load via :class:`DefaultLoadEquipmentMapper`.
 5. Feeder models are built concurrently (``ThreadPoolExecutor``) and exported
@@ -44,8 +44,8 @@ try:  # Python 3.11+
 except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
-from gdm.distribution import CatalogSystem, DistributionSystem
-from gdm.distribution.components import DistributionTransformer
+from gdm.systems.distribution import CatalogSystem, DistributionSystem
+from gdm.systems.distribution.components import DistributionTransformer
 from gdm.quantities import ApparentPower, Voltage
 
 from shift.data_model import (
@@ -564,12 +564,12 @@ def _make_parcel_source(config: ParcelSourceConfig) -> ParcelSource:
 
 
 def load_catalog(config: CatalogConfig | None = None) -> CatalogSystem:
-    """Load a :class:`gdm.distribution.CatalogSystem` through gdmloader.
+    """Load a :class:`gdm.systems.distribution.CatalogSystem` through gdmloader.
 
     Uses gdmloader's ``SystemLoader`` with the public Google Cloud Storage case
     source (``GCS_CASE_SOURCE``) and the ``gdm_catalog`` dataset by default.
     """
-    from gdm.distribution import CatalogSystem as _CatalogSystem
+    from gdm.systems.distribution import CatalogSystem as _CatalogSystem
     from gdmloader.constants import GCS_CASE_SOURCE
     from gdmloader.source import SystemLoader
 
@@ -597,7 +597,7 @@ def load_catalog(config: CatalogConfig | None = None) -> CatalogSystem:
 
 def _load_local_catalog(path: Path) -> "DistributionSystem":
     """Load a catalog from a local DatasetSystem JSON file."""
-    from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
+    from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
     return DistributionSystem.from_json(path, upgrade_handler=UpgradeHandler().upgrade)
 
@@ -609,12 +609,12 @@ def _prewarm_catalog(catalog) -> None:
     ``get_components`` call. Warming them in the main thread avoids concurrent
     first-access races from the worker threads.
     """
-    from gdm.distribution.components import (
+    from gdm.systems.distribution.components import (
         DistributionBranchBase,
         DistributionLoad,
         DistributionTransformer as _DistributionTransformer,
     )
-    from gdm.distribution.equipment import (
+    from gdm.systems.distribution.equipment import (
         DistributionTransformerEquipment,
         GeometryBranchEquipment,
         LoadEquipment,
@@ -661,7 +661,7 @@ def augment_catalog_with_matrix_branches(catalog, *, phase_counts=(1, 2, 3)) -> 
     mapper can select matrix branch equipment. Idempotent: assemblies already in
     the catalog are skipped.
     """
-    from gdm.distribution.equipment import (
+    from gdm.systems.distribution.equipment import (
         BareConductorEquipment,
         ConcentricCableEquipment,
         GeometryBranchEquipment,

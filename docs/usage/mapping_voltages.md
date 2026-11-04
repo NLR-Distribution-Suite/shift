@@ -9,7 +9,7 @@ Voltage mapping assigns primary and secondary voltage levels to nodes in the gra
 ```python
 from shift import TransformerVoltageMapper, TransformerVoltageModel, add_voltage_mapper_to_plot
 from gdm.quantities import Voltage
-from gdm import DistributionTransformer
+from gdm.systems.distribution.components import DistributionTransformer
 
 # `new_graph` is the DistributionGraph from the previous steps
 

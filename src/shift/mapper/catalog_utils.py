@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 
-from gdm.distribution.enums import VoltageTypes
+from gdm.systems.distribution.enums import VoltageTypes
 
 from shift.graph.distribution_graph import DistributionGraph
 
@@ -34,7 +34,7 @@ def phase_voltage_kv(voltage, voltage_type: VoltageTypes) -> float:
 def catalog_transformer_voltage_options(catalog) -> set[tuple[float, float, int, bool]]:
     """Collect ``(primary_phase_kv, secondary_phase_kv, num_phases, is_center_tapped)``
     tuples from every transformer equipment in ``catalog`` (phase-normalized)."""
-    from gdm.distribution.equipment import DistributionTransformerEquipment
+    from gdm.systems.distribution.equipment import DistributionTransformerEquipment
 
     options: set[tuple[float, float, int, bool]] = set()
     for equipment in catalog.get_components(DistributionTransformerEquipment):
@@ -58,8 +58,8 @@ def snap_voltage_mapper_to_catalog(
     the nearest phase-compatible catalog transformer's phase voltages and rebuild
     the voltage mapper accordingly. Returns the (possibly rebuilt) voltage mapper.
     """
-    from gdm.distribution.components import DistributionTransformer
-    from gdm.distribution.enums import Phase
+    from gdm.systems.distribution.components import DistributionTransformer
+    from gdm.systems.distribution.enums import Phase
     from gdm.quantities import Voltage
     from shift.data_model import TransformerVoltageModel
     from shift.mapper.transformer_voltage_mapper import TransformerVoltageMapper

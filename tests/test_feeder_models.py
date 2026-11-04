@@ -1,18 +1,19 @@
 """Tests for the parallel feeder-model pipeline."""
 
+from pathlib import Path
 from unittest import mock
 
 import geopandas as gpd
 import numpy as np
 import pytest
-from gdm.distribution import CatalogSystem, DistributionSystem
-from gdm.distribution.components import (
+from gdm.systems.distribution import CatalogSystem, DistributionSystem
+from gdm.systems.distribution.components import (
     DistributionBus,
     DistributionLoad,
     DistributionTransformer,
     MatrixImpedanceBranch,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     BareConductorEquipment,
     DistributionTransformerEquipment,
     LoadEquipment,
@@ -20,7 +21,7 @@ from gdm.distribution.equipment import (
     PhaseLoadEquipment,
     WindingEquipment,
 )
-from gdm.distribution.enums import ConnectionType, VoltageTypes
+from gdm.systems.distribution.enums import ConnectionType, VoltageTypes
 from gdm.quantities import (
     ActivePower,
     ApparentPower,
@@ -43,6 +44,7 @@ from shift.feeder_models import (
     PRSGConfig,
     ParcelSourceConfig,
     _iter_feeder_tasks,
+    _load_local_catalog,
     augment_catalog_with_matrix_branches,
     build_feeder_model,
     build_feeder_models,
@@ -266,6 +268,12 @@ def test_load_catalog(monkeypatch):
     assert captured["source"].name == "gdm_data"
     assert captured["kwargs"]["system_type"].__name__ == "CatalogSystem"
     assert captured["kwargs"]["dataset_name"] == "my_catalog"
+
+
+def test_load_local_catalog_upgrades_legacy_model():
+    path = Path(__file__).parent / "models" / "p1rhs7_1247.json"
+    catalog = _load_local_catalog(path)
+    assert len(list(catalog.get_components(DistributionBus))) == 2510
 
 
 def test_build_single_feeder_model(catalog, tmp_path):

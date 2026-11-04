@@ -174,3 +174,6 @@ cache
 # GATES build artifacts (generated distribution systems)
 gates_system_*.json
 gates_system_*_time_series/
+
+/trinidad_co/
+/examples/

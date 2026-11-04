@@ -46,8 +46,8 @@ def register(mcp: MCPServer) -> None:  # noqa: C901
             from shift.mapper.default_load_equipment_mapper import (
                 DefaultLoadEquipmentMapper,
             )
-            from gdm.distribution import DistributionSystem as DatasetSystem
-            from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
+            from gdm.systems.distribution import DistributionSystem as DatasetSystem
+            from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
             app: AppContext = ctx.request_context.lifespan_context
             graph = app.get_graph(graph_id)

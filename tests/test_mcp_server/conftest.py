@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionBranchBase,
     DistributionLoad,
     DistributionTransformer,

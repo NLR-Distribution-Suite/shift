@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import networkx as nx
-from gdm.distribution.components import DistributionLoad, DistributionVoltageSource
+from gdm.systems.distribution.components import DistributionLoad, DistributionVoltageSource
 from infrasys.quantities import Distance
 from loguru import logger
 

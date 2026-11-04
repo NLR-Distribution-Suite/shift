@@ -6,7 +6,7 @@ The simplest approach is to create a new graph with the updated edge types:
 
 ```python
 from shift import DistributionGraph
-from gdm import DistributionBranchBase, MatrixImpedanceBranch
+from gdm.systems.distribution.components import DistributionBranchBase, MatrixImpedanceBranch
 
 # `graph` is the DistributionGraph from the previous step (see Building a Graph)
 

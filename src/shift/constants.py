@@ -1,4 +1,4 @@
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionTransformer,
     DistributionBranchBase,
     MatrixImpedanceBranch,
@@ -8,7 +8,7 @@ from gdm.distribution.components import (
     MatrixImpedanceSwitch,
     MatrixImpedanceRecloser,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     SequenceImpedanceBranchEquipment,
     MatrixImpedanceBranchEquipment,
     GeometryBranchEquipment,

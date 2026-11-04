@@ -1,5 +1,5 @@
 import pytest
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
     DistributionTransformer,
     DistributionBranchBase,

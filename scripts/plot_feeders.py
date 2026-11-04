@@ -23,8 +23,8 @@ from pathlib import Path
 import plotly.graph_objects as go
 from loguru import logger
 
-from gdm.distribution import DistributionSystem
-from gdm.distribution.components import DistributionLoad
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import DistributionLoad
 from shift.plot_manager import COLORS
 
 SECONDARY_COLOR = "#9aa0a6"

@@ -17,7 +17,7 @@ _ASSET_TYPE_MAP: dict[str, type] | None = None
 def _get_asset_type_map() -> dict[str, type]:
     global _ASSET_TYPE_MAP
     if _ASSET_TYPE_MAP is None:
-        from gdm.distribution.components import (
+        from gdm.systems.distribution.components import (
             DistributionLoad,
             DistributionSolar,
             DistributionCapacitor,

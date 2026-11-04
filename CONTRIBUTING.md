@@ -10,7 +10,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Prerequisites
 
-- Python >= 3.10
+- Python >= 3.11
 - Git
 - Familiarity with power distribution systems is helpful but not required
 

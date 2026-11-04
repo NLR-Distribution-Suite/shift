@@ -6,15 +6,15 @@ a distribution system, as described in the documentation's complete example.
 
 import numpy as np
 
-from gdm.distribution import DistributionSystem
-from gdm.distribution.components import (
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
     DistributionTransformer,
     DistributionBus,
     MatrixImpedanceBranch,
     DistributionLoad,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     DistributionTransformerEquipment,
     MatrixImpedanceBranchEquipment,
     LoadEquipment,
@@ -22,8 +22,8 @@ from gdm.distribution.equipment import (
     PhaseVoltageSourceEquipment,
     WindingEquipment,
 )
-from gdm.distribution.equipment.load_equipment import PhaseLoadEquipment
-from gdm.distribution.enums import VoltageTypes, ConnectionType
+from gdm.systems.distribution.equipment.load_equipment import PhaseLoadEquipment
+from gdm.systems.distribution.enums import VoltageTypes, ConnectionType
 from gdm.quantities import Distance, Voltage, ApparentPower, Current, ReactivePower
 from infrasys import Location
 from infrasys.quantities import ActivePower, Angle

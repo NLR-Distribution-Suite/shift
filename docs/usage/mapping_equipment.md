@@ -20,11 +20,14 @@ Any valid `DistributionSystem` can serve as an equipment catalog. Here we load o
 
 ```python
 from pathlib import Path
-from gdm import DistributionSystem
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 import shift
 
 MODELS_FOLDER = Path(shift.__file__).parent.parent.parent / "tests" / "models"
-catalog_sys = DistributionSystem.from_json(MODELS_FOLDER / "p1rhs7_1247.json")
+catalog_sys = DistributionSystem.from_json(
+    MODELS_FOLDER / "p1rhs7_1247.json", upgrade_handler=UpgradeHandler().upgrade
+)
 ```
 
 ### Define the Custom Mapper
@@ -41,15 +44,17 @@ from shift import (
     NodeModel,
 )
 
-from gdm import (
-    PhaseVoltageSourceEquipment,
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
+    DistributionLoad,
+)
+from gdm.systems.distribution.equipment import (
+    PhaseVoltageSourceEquipment,
     VoltageSourceEquipment,
     PhaseLoadEquipment,
-    DistributionLoad,
     LoadEquipment,
-    Phase,
 )
+from gdm.systems.distribution.enums import Phase
 from gdm.quantities import ReactivePower, Reactance
 
 from shapely.geometry import Polygon

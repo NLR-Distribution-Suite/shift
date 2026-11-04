@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
 
-from gdm.distribution.enums import Phase
+from gdm.systems.distribution.enums import Phase
 
 from shift.graph.distribution_graph import DistributionGraph
 from shift.data_model import VALID_NODE_TYPES

@@ -1,7 +1,7 @@
 """Tests for data models."""
 
 from gdm.quantities import Voltage, ApparentPower
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionLoad,
     DistributionTransformer,
     DistributionBranchBase,

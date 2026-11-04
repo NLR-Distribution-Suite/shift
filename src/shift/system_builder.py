@@ -4,9 +4,9 @@ from uuid import uuid4
 import math
 import logging
 
-from gdm.distribution.equipment import DistributionTransformerEquipment
-from gdm.distribution import DistributionSystem
-from gdm.distribution.components import (
+from gdm.systems.distribution.equipment import DistributionTransformerEquipment
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import (
     DistributionTransformer,
     DistributionBranchBase,
     DistributionBus,
@@ -14,12 +14,12 @@ from gdm.distribution.components import (
     SequenceImpedanceBranch,
     GeometryBranch,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     MatrixImpedanceBranchEquipment,
     SequenceImpedanceBranchEquipment,
     GeometryBranchEquipment,
 )
-from gdm.distribution.enums import (
+from gdm.systems.distribution.enums import (
     VoltageTypes,
     Phase,
 )

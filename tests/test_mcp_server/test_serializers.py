@@ -1,6 +1,6 @@
 """Tests for serialization helpers."""
 
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionBranchBase,
     DistributionLoad,
     DistributionTransformer,

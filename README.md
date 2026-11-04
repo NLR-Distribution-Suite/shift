@@ -123,7 +123,7 @@ from shift import (
     TransformerVoltageModel,
     TransformerTypes,
 )
-from gdm import DistributionTransformer
+from gdm.systems.distribution.components import DistributionTransformer
 from gdm.quantities import ApparentPower, Voltage
 
 # Phase mapper — assign phases to transformer secondaries
@@ -154,11 +154,14 @@ voltage_mapper = TransformerVoltageMapper(
 
 # Build the system
 from pathlib import Path
-from gdm import DistributionSystem
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 import shift
 
 MODELS_FOLDER = Path(shift.__file__).parent.parent.parent / "tests" / "models"
-catalog_sys = DistributionSystem.from_json(MODELS_FOLDER / "p1rhs7_1247.json")
+catalog_sys = DistributionSystem.from_json(
+    MODELS_FOLDER / "p1rhs7_1247.json", upgrade_handler=UpgradeHandler().upgrade
+)
 
 system = DistributionSystemBuilder(
     name="fort_worth_feeder",
@@ -213,7 +216,7 @@ pytest -m "not slow"                # Skip slow tests
 
 ## Requirements
 
-- Python >= 3.10
+- Python >= 3.11
 - [OSMnx](https://osmnx.readthedocs.io/) — OpenStreetMap data access
 - [NetworkX](https://networkx.org/) — Graph operations
 - [Grid Data Models](https://github.com/NLR-Distribution-Suite/grid-data-models) — Power system component models

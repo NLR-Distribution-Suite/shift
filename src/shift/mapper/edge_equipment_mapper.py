@@ -6,21 +6,21 @@ from loguru import logger
 
 
 from infrasys.component import Component
-from gdm.dataset.dataset_system import DatasetSystem
+from gdm.systems.distribution import DistributionSystem as DatasetSystem
 from gdm.quantities import ApparentPower, Current, Voltage
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionTransformer,
     DistributionBranchBase,
     DistributionLoad,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     DistributionTransformerEquipment,
     SequenceImpedanceBranchEquipment,
     MatrixImpedanceBranchEquipment,
     GeometryBranchEquipment,
     LoadEquipment,
 )
-from gdm.distribution.enums import Phase, VoltageTypes
+from gdm.systems.distribution.enums import Phase, VoltageTypes
 
 import networkx as nx
 
@@ -258,7 +258,7 @@ class EdgeEquipmentMapper(BaseEquipmentMapper):
             )
 
         new_uuid = uuid4()
-        from gdm.distribution.common.sequence_pair import SequencePair
+        from gdm.systems.distribution.common.sequence_pair import SequencePair
 
         synthesized = base.model_copy(
             update={

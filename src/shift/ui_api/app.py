@@ -48,7 +48,7 @@ from shift.mcp_server.serializers import (
     serialize_group,
     serialize_parcel,
 )
-from gdm.distribution import DistributionSystem as DatasetSystem
+from gdm.systems.distribution import DistributionSystem as DatasetSystem
 from shift.parcel import parcels_from_location
 from shift.system_builder import DistributionSystemBuilder
 from shift.ui_api.models import (
@@ -81,7 +81,7 @@ from shift.utils.get_cluster import (
     get_kmeans_clusters,
 )
 from shift.utils.geo import region_area_km2_from_points, region_area_km2_from_polygon
-from gdm.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
+from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 
 _GDM_UPGRADE_HANDLER = UpgradeHandler().upgrade
 
@@ -114,7 +114,7 @@ def _catalog_transformer_type(equipment) -> str:
 
 
 def _catalog_transformer_options(catalog: DatasetSystem) -> list[dict]:
-    from gdm.distribution.equipment import DistributionTransformerEquipment
+    from gdm.systems.distribution.equipment import DistributionTransformerEquipment
 
     options: dict[tuple, dict] = {}
     for equipment in catalog.get_components(DistributionTransformerEquipment):
@@ -1177,15 +1177,18 @@ def _register_system_routes(app: FastAPI, state: UiSessionState) -> None:  # noq
 
         try:
             from functools import cached_property as _cached_property
-            from gdm.distribution.equipment import (
+            from gdm.systems.distribution.equipment import (
                 LoadEquipment,
                 PhaseLoadEquipment,
                 VoltageSourceEquipment,
                 PhaseVoltageSourceEquipment,
             )
-            from gdm.distribution.components import DistributionVoltageSource, DistributionLoad
-            from gdm.distribution.components import DistributionTransformer as _DT
-            from gdm.distribution.enums import VoltageTypes, Phase as _Phase
+            from gdm.systems.distribution.components import (
+                DistributionVoltageSource,
+                DistributionLoad,
+            )
+            from gdm.systems.distribution.components import DistributionTransformer as _DT
+            from gdm.systems.distribution.enums import VoltageTypes, Phase as _Phase
             from gdm.quantities import Reactance, ActivePower as _AP, ReactivePower as _RP
             from infrasys.component import Component as _Component
             from infrasys.quantities import Resistance, Angle

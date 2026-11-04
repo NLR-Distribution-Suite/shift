@@ -37,12 +37,13 @@ from shift import (
     add_distribution_graph_to_plot,
 )
 
-from gdm import (
-    DistributionSystem,
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import (
     DistributionTransformer,
     DistributionBranchBase,
     MatrixImpedanceBranch,
 )
+from gdm.systems.distribution.upgrade_handler.upgrade_handler import UpgradeHandler
 from gdm.quantities import Voltage, ApparentPower
 from infrasys.quantities import Distance
 import osmnx as ox
@@ -135,7 +136,9 @@ Load an equipment catalog and create the equipment mapper. For a custom node-lev
 import shift
 
 MODELS_FOLDER = Path(shift.__file__).parent.parent.parent / "tests" / "models"
-catalog_sys = DistributionSystem.from_json(MODELS_FOLDER / "p1rhs7_1247.json")
+catalog_sys = DistributionSystem.from_json(
+    MODELS_FOLDER / "p1rhs7_1247.json", upgrade_handler=UpgradeHandler().upgrade
+)
 
 eq_mapper = EdgeEquipmentMapper(new_graph, catalog_sys, voltage_mapper, phase_mapper)
 ```
