@@ -16,20 +16,24 @@ from shift import EdgeEquipmentMapper, DistributionGraph, BaseVoltageMapper, Bas
 
 import networkx as nx
 
-from gdm import (
-    PhaseVoltageSourceEquipment,
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.common import VoltageLimitSet
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
     DistributionTransformer,
-    build_graph_from_system,
-    VoltageSourceEquipment,
     MatrixImpedanceBranch,
-    DistributionSystem,
-    PhaseLoadEquipment,
     DistributionLoad,
     DistributionBus,
-    VoltageLimitSet,
-    ConnectionType,
+)
+from gdm.systems.distribution.distribution_graph import build_graph_from_system
+from gdm.systems.distribution.equipment import (
+    PhaseVoltageSourceEquipment,
+    VoltageSourceEquipment,
+    PhaseLoadEquipment,
     LoadEquipment,
+)
+from gdm.systems.distribution.enums import (
+    ConnectionType,
     VoltageTypes,
     LimitType,
 )

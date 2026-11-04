@@ -34,7 +34,7 @@ parcel = ParcelModel(
 ```python
 from shift import NodeModel
 from infrasys import Location
-from gdm import DistributionLoad
+from gdm.systems.distribution.components import DistributionLoad
 
 node = NodeModel(
     name="node-1",
@@ -47,7 +47,7 @@ node = NodeModel(
 
 ```python
 from shift import EdgeModel
-from gdm import DistributionBranchBase
+from gdm.systems.distribution.components import DistributionBranchBase
 from infrasys.quantities import Distance
 
 edge = EdgeModel(
@@ -96,7 +96,7 @@ network = get_road_network("Fort Worth, TX", Distance(500, "m"))
 
 ```python
 from shift import DistributionGraph, NodeModel, EdgeModel
-from gdm import DistributionBranchBase
+from gdm.systems.distribution.components import DistributionBranchBase
 from infrasys import Location
 
 graph = DistributionGraph()
@@ -145,7 +145,7 @@ graph = builder.get_distribution_graph()
 
 ```python
 from shift import BalancedPhaseMapper, TransformerPhaseMapperModel, TransformerTypes
-from gdm import DistributionTransformer
+from gdm.systems.distribution.components import DistributionTransformer
 from infrasys.quantities import ApparentPower
 
 models = [
@@ -171,7 +171,7 @@ phase_mapper.asset_phase_mapping           # dict[str, dict[type, set[Phase]]]
 
 ```python
 from shift import TransformerVoltageMapper, TransformerVoltageModel
-from gdm import DistributionTransformer
+from gdm.systems.distribution.components import DistributionTransformer
 from infrasys.quantities import Voltage
 
 voltage_mapper = TransformerVoltageMapper(

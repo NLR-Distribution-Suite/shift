@@ -5,7 +5,7 @@ import uuid
 import networkx as nx
 from networkx.algorithms import approximation as ax
 from loguru import logger
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
     DistributionTransformer,
     DistributionBranchBase,

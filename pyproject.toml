@@ -11,7 +11,7 @@ name = "nrel-shift"
 dynamic = ["version"]
 description = "Framework for developing synthetic distribution feeder model."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-clause"
 keywords = []
 authors = [
@@ -29,7 +29,7 @@ dependencies = [
   "scikit-learn",
   "plotly",
   "geopy",
-  "grid-data-models>=2.3.7,<2.4",
+  "grid-data-models>=2.4.1",
   "gdmloader",
   "importlib-metadata",
   "loguru",

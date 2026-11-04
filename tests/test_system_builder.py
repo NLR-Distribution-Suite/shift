@@ -2,8 +2,8 @@
 
 import pytest
 
-from gdm.distribution import DistributionSystem
-from gdm.distribution.components import (
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import (
     DistributionVoltageSource,
     DistributionTransformer,
     DistributionLoad,
@@ -32,7 +32,7 @@ class MockEquipmentMapper(BaseEquipmentMapper):
 
     def __init__(self, graph, phase_mapper, voltage_mapper):
         """Initialize with equipment dictionaries."""
-        from gdm.distribution.equipment import (
+        from gdm.systems.distribution.equipment import (
             DistributionTransformerEquipment,
             MatrixImpedanceBranchEquipment,
             LoadEquipment,
@@ -40,8 +40,8 @@ class MockEquipmentMapper(BaseEquipmentMapper):
             PhaseVoltageSourceEquipment,
             WindingEquipment,
         )
-        from gdm.distribution.equipment.load_equipment import PhaseLoadEquipment
-        from gdm.distribution.enums import VoltageTypes, ConnectionType
+        from gdm.systems.distribution.equipment.load_equipment import PhaseLoadEquipment
+        from gdm.systems.distribution.enums import VoltageTypes, ConnectionType
         from infrasys.quantities import ActivePower, Angle
         import numpy as np
 

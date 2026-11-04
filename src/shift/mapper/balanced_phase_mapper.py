@@ -3,8 +3,8 @@ from itertools import combinations, groupby
 import operator
 from typing import Literal
 
-from gdm.distribution.components import DistributionTransformer
-from gdm.distribution.enums import Phase
+from gdm.systems.distribution.components import DistributionTransformer
+from gdm.systems.distribution.enums import Phase
 import numpy as np
 import networkx as nx
 from shift.exceptions import (

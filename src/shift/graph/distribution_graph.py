@@ -2,7 +2,7 @@ from typing import Callable, Iterable
 import copy
 
 import networkx as nx
-from gdm.distribution.components import DistributionVoltageSource
+from gdm.systems.distribution.components import DistributionVoltageSource
 
 
 from shift.exceptions import (
@@ -34,7 +34,7 @@ class DistributionGraph:
 
     Adding multiple nodes to the system.
 
-    >>> from gdm import DistributionLoad
+    >>> from gdm.systems.distribution.components import DistributionLoad
     >>> dgraph.add_nodes([NodeModel(name="node_2", assets={DistributionLoad}),
         NodeModel(name="node_3")])
 

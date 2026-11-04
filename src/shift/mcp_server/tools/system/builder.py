@@ -110,7 +110,7 @@ def register(mcp: MCPServer) -> None:
             loads, solar, capacitors, voltage sources).
         """
         try:
-            from gdm.distribution.components import (
+            from gdm.systems.distribution.components import (
                 DistributionBus,
                 DistributionBranchBase,
                 DistributionTransformer,

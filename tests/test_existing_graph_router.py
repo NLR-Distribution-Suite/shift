@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from gdm.distribution.components import DistributionLoad, DistributionVoltageSource
+from gdm.systems.distribution.components import DistributionLoad, DistributionVoltageSource
 
 from shift.data_model import GeoLocation
 from shift.exceptions import InvalidInputError

@@ -14,17 +14,17 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from gdm.distribution.components import (
+from gdm.systems.distribution.components import (
     DistributionLoad,
     DistributionVoltageSource,
 )
-from gdm.distribution.equipment import (
+from gdm.systems.distribution.equipment import (
     LoadEquipment,
     PhaseLoadEquipment,
     PhaseVoltageSourceEquipment,
     VoltageSourceEquipment,
 )
-from gdm.distribution.enums import VoltageTypes
+from gdm.systems.distribution.enums import VoltageTypes
 from gdm.quantities import ActivePower, Reactance, ReactivePower, Voltage
 from infrasys.quantities import Angle, Resistance
 

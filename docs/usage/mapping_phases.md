@@ -15,7 +15,7 @@ from shift import (
     PlotManager,
     GeoLocation,
 )
-from gdm import DistributionTransformer
+from gdm.systems.distribution.components import DistributionTransformer
 from gdm.quantities import ApparentPower
 import osmnx as ox
 

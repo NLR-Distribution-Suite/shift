@@ -17,7 +17,7 @@ _EDGE_TYPE_MAP: dict[str, type] | None = None
 def _get_edge_type_map() -> dict[str, type]:
     global _EDGE_TYPE_MAP
     if _EDGE_TYPE_MAP is None:
-        from gdm.distribution.components import (
+        from gdm.systems.distribution.components import (
             DistributionBranchBase,
             DistributionTransformer,
         )
