@@ -1,0 +1,1005 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>MCP Server &#8212; NREL-shift</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'MCP_SERVER';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="API Quick Reference" href="API_REFERENCE.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">NREL-shift</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    NREL-shift
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">What's New</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="new_features.html">Version 0.8.0</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="example/example.html">Synthetic Distribution Model Building with SHIFT</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="usage/index.html">Usage Guides</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/complete_example.html">Complete Example: Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/fetching_parcels.html">Fetching Parcels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/building_graph.html">Building a Distribution Graph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/updating_branch_type.html">Updating Branch Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_phases.html">Mapping Phases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_voltages.html">Mapping Voltages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_equipment.html">Mapping Equipment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/building_system.html">Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/ui_studio.html">UI Studio</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="references/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="references/data_model.html">Data Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/dist_graph.html">DistributionGraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_graph.html">OpenStreetGraphBuilder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/prsg.html">PRSG (Primary-Secondary Road-Network Graph Builder)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/routing_strategies.html">Routing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/secondary_strategies.html">Secondary Network Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/phase_mapper.html">Phase Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/voltage_mapper.html">Voltage Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/equipment_mapper.html">Equipment Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/system_builder.html">Distribution System Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_parcel.html">Parcel Fetching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_roads.html">Road Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/clustering.html">K-Means Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/nearest_points.html">Nearest Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/polygon_from_points.html">Polygon from Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/mesh_network.html">Mesh Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/split_edges.html">Splitting Edges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/plot_manager.html">PlotManager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/plots.html">Plot Helpers</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="API_REFERENCE.html">API Quick Reference</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">MCP Server</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/MCP_SERVER.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>MCP Server</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-server">Running the Server</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#claude-desktop-configuration">Claude Desktop Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#session-state">Session State</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-reference">Tools Reference</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-acquisition-5-tools">Data Acquisition (5 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#graph-management-13-tools">Graph Management (13 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mappers-6-tools">Mappers (6 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#system-4-tools">System (4 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities-5-tools">Utilities (5 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation-3-tools">Documentation (3 tools)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resource-templates">Resource Templates</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-templates">Prompt Templates</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration">Configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-workflow">Example Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-limitations">Known Limitations</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="mcp-server">
+<h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h1>
+<p>NREL-shift includes a <a class="reference external" href="https://modelcontextprotocol.io/">Model Context Protocol</a> (MCP) server that exposes the full framework to LLM-based agents. The server provides 36 tools, 3 resource templates, and 3 prompt templates that enable AI assistants to build synthetic distribution feeder models interactively.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
+<p>Install the MCP optional dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[mcp]"</span>
+</pre></div>
+</div>
+</section>
+<section id="running-the-server">
+<h2>Running the Server<a class="headerlink" href="#running-the-server" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Via console script</span>
+shift-mcp-server
+
+<span class="c1"># Via Python module</span>
+python<span class="w"> </span>-m<span class="w"> </span>shift.mcp_server
+</pre></div>
+</div>
+<p>The server uses <strong>stdio</strong> transport by default.</p>
+<section id="claude-desktop-configuration">
+<h3>Claude Desktop Configuration<a class="headerlink" href="#claude-desktop-configuration" title="Link to this heading">#</a></h3>
+<p>Add the following to your Claude Desktop config (<code class="docutils literal notranslate"><span class="pre">~/Library/Application</span> <span class="pre">Support/Claude/claude_desktop_config.json</span></code> on macOS):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"nrel-shift"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shift-mcp-server"</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>src/shift/mcp_server/
+├── __init__.py
+├── __main__.py          # Entry point
+├── server.py            # FastMCP instance, lifespan, registration
+├── config.py            # ServerConfig (Pydantic model)
+├── state.py             # AppContext — in-memory session state
+├── serializers.py       # JSON serialization helpers
+├── tools/
+│   ├── data_acquisition/
+│   │   ├── parcels.py       # fetch_parcels, fetch_parcels_in_polygon
+│   │   ├── roads.py         # fetch_road_network
+│   │   └── clustering.py    # cluster_parcels
+│   ├── graph/
+│   │   ├── management.py    # create_graph, delete_graph, list_graphs
+│   │   ├── nodes.py         # add_node, remove_node, get_node
+│   │   ├── edges.py         # add_edge, remove_edge, get_edge
+│   │   ├── query.py         # query_graph
+│   │   └── builder.py       # build_graph_from_groups
+│   ├── mapper/
+│   │   ├── phase.py         # configure_phase_mapper, get_phase_mapping
+│   │   ├── voltage.py       # configure_voltage_mapper, get_voltage_mapping
+│   │   └── equipment.py     # configure_equipment_mapper, get_equipment_mapping
+│   ├── system/
+│   │   ├── builder.py       # build_system, get_system_summary, list_systems
+│   │   └── export.py        # export_system_json
+│   ├── utilities/
+│   │   ├── geo.py           # distance_between_points, polygon_from_points
+│   │   ├── network.py       # create_mesh_network, split_edges
+│   │   └── nearest.py       # find_nearest_points
+│   └── documentation/
+│       ├── search.py        # search_docs
+│       └── read.py          # list_docs, read_doc
+├── resources/
+│   └── docs.py              # shift://docs, shift://docs/{name}, shift://graphs
+└── prompts/
+    └── workflows.py         # build_feeder_from_location, inspect_network, explore_api
+</pre></div>
+</div>
+</section>
+<section id="session-state">
+<h2>Session State<a class="headerlink" href="#session-state" title="Link to this heading">#</a></h2>
+<p>The server is <strong>stateful</strong> — graphs, mappers, and systems are held in memory for the duration of a session via the <code class="docutils literal notranslate"><span class="pre">AppContext</span></code> dataclass. Each tool receives the context through FastMCP’s lifespan mechanism.</p>
+<p>Key state containers:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Container</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Contents</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">graphs</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">DistributionGraph]</span></code></p></td>
+<td><p>In-memory distribution graphs</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">phase_mappers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">BalancedPhaseMapper]</span></code></p></td>
+<td><p>Phase mapper instances</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">voltage_mappers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">TransformerVoltageMapper]</span></code></p></td>
+<td><p>Voltage mapper instances</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">equipment_mappers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">EdgeEquipmentMapper]</span></code></p></td>
+<td><p>Equipment mapper instances</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">systems</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">DistributionSystem]</span></code></p></td>
+<td><p>Built distribution systems</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">docs_index</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">str]</span></code></p></td>
+<td><p>Indexed documentation content</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="tools-reference">
+<h2>Tools Reference<a class="headerlink" href="#tools-reference" title="Link to this heading">#</a></h2>
+<section id="data-acquisition-5-tools">
+<h3>Data Acquisition (5 tools)<a class="headerlink" href="#data-acquisition-5-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fetch_parcels</span></code></p></td>
+<td><p>Fetch building parcels from OpenStreetMap for a given location</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fetch_parcels_in_polygon</span></code></p></td>
+<td><p>Fetch building parcels within a polygon boundary</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">set_local_pbf</span></code></p></td>
+<td><p>Configure a local OpenStreetMap PBF for offline parcel extraction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fetch_road_network</span></code></p></td>
+<td><p>Fetch the road network from OpenStreetMap around a location</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cluster_parcels</span></code></p></td>
+<td><p>Cluster geographic points into groups</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="graph-management-13-tools">
+<h3>Graph Management (13 tools)<a class="headerlink" href="#graph-management-13-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">create_graph</span></code></p></td>
+<td><p>Create a new empty distribution graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">delete_graph</span></code></p></td>
+<td><p>Delete a distribution graph and its associated mappers</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">list_graphs</span></code></p></td>
+<td><p>List all distribution graphs in the current session</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">add_node</span></code></p></td>
+<td><p>Add a node to a distribution graph</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">remove_node</span></code></p></td>
+<td><p>Remove a node from a distribution graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_node</span></code></p></td>
+<td><p>Get details of a specific node</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">add_edge</span></code></p></td>
+<td><p>Add an edge (line or transformer) to a distribution graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">remove_edge</span></code></p></td>
+<td><p>Remove an edge from a distribution graph</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_edge</span></code></p></td>
+<td><p>Get details of a specific edge</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">query_graph</span></code></p></td>
+<td><p>Query information about a distribution graph (summary, nodes, edges, vsource, dfs_tree)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build_graph_from_groups</span></code></p></td>
+<td><p>Build a complete distribution graph from parcel groups using the PRSG algorithm</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">route_existing_graph</span></code></p></td>
+<td><p>Route an existing graph using a selected routing strategy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layout_existing_graph</span></code></p></td>
+<td><p>Layout an existing graph using a selected secondary-network strategy</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="mappers-6-tools">
+<h3>Mappers (6 tools)<a class="headerlink" href="#mappers-6-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configure_phase_mapper</span></code></p></td>
+<td><p>Configure balanced phase mapping for a distribution graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_phase_mapping</span></code></p></td>
+<td><p>Get phase assignments (nodes, assets, or transformers)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configure_voltage_mapper</span></code></p></td>
+<td><p>Configure voltage mapping for a distribution graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_voltage_mapping</span></code></p></td>
+<td><p>Get voltage assignments for all nodes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configure_equipment_mapper</span></code></p></td>
+<td><p>Configure equipment mapping using an equipment catalog</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_equipment_mapping</span></code></p></td>
+<td><p>Get equipment assignments for all edges</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="system-4-tools">
+<h3>System (4 tools)<a class="headerlink" href="#system-4-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build_system</span></code></p></td>
+<td><p>Build a complete distribution system from a configured graph</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_system_summary</span></code></p></td>
+<td><p>Get a summary of a built distribution system</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">list_systems</span></code></p></td>
+<td><p>List all built distribution systems in the current session</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">export_system_json</span></code></p></td>
+<td><p>Export a distribution system to JSON format</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="utilities-5-tools">
+<h3>Utilities (5 tools)<a class="headerlink" href="#utilities-5-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">distance_between_points</span></code></p></td>
+<td><p>Calculate geodesic distance between two points</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">polygon_from_points</span></code></p></td>
+<td><p>Create a polygon boundary from a set of points</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">create_mesh_network</span></code></p></td>
+<td><p>Create a regular 2D mesh/grid network</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">split_edges</span></code></p></td>
+<td><p>Split long edges into shorter segments</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">find_nearest_points</span></code></p></td>
+<td><p>Find the nearest target point for each source point</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="documentation-3-tools">
+<h3>Documentation (3 tools)<a class="headerlink" href="#documentation-3-tools" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">list_docs</span></code></p></td>
+<td><p>List all available documentation files</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">search_docs</span></code></p></td>
+<td><p>Search across all documentation for a keyword or phrase</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read_doc</span></code></p></td>
+<td><p>Read a specific documentation file, optionally by section</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="resource-templates">
+<h2>Resource Templates<a class="headerlink" href="#resource-templates" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>URI</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">shift://docs</span></code></p></td>
+<td><p>List all indexed documentation files</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">shift://docs/{doc_name}</span></code></p></td>
+<td><p>Read a specific documentation file by name</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">shift://graphs</span></code></p></td>
+<td><p>List all in-memory distribution graphs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="prompt-templates">
+<h2>Prompt Templates<a class="headerlink" href="#prompt-templates" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Prompt</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build_feeder_from_location</span></code></p></td>
+<td><p>Guides through the full pipeline: fetch → cluster → build graph → map phases → map voltages → map equipment → build system → export</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">inspect_network</span></code></p></td>
+<td><p>Inspect an existing distribution graph and summarize its topology</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">explore_api</span></code></p></td>
+<td><p>Explore the NREL-shift API documentation on a given topic</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<p>The server loads configuration from a <code class="docutils literal notranslate"><span class="pre">ServerConfig</span></code> Pydantic model. Defaults can be overridden by placing a <code class="docutils literal notranslate"><span class="pre">shift_mcp_config.yaml</span></code> file in the working directory.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Setting</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">server_name</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;nrel-shift&quot;</span></code></p></td>
+<td><p>Server display name</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server_version</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code></p></td>
+<td><p>Server version</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">default_search_distance_m</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">500.0</span></code></p></td>
+<td><p>Default parcel/road search radius (meters)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_search_distance_m</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5000.0</span></code></p></td>
+<td><p>Maximum allowed search radius (meters)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">default_cluster_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Default number of K-means clusters</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">docs_path</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code></p></td>
+<td><p>Override path to documentation directory</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;INFO&quot;</span></code></p></td>
+<td><p>Logging level</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="example-workflow">
+<h2>Example Workflow<a class="headerlink" href="#example-workflow" title="Link to this heading">#</a></h2>
+<p>A typical agent-driven workflow:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>User: Build a small distribution feeder for Golden, CO
+
+Agent:
+1. fetch_parcels(location="Golden, CO", distance_meters=300)
+   → 24 parcels found
+
+2. cluster_parcels(points=[...], num_clusters=6)
+   → 6 groups created
+
+3. build_graph_from_groups(groups=[...], source_longitude=-105.22, source_latitude=39.75)
+   → graph "graph-a1b2" created with 31 nodes, 30 edges
+
+4. configure_phase_mapper(graph_id="graph-a1b2", transformer_configs=[...])
+   → phase mapper configured
+
+5. configure_voltage_mapper(graph_id="graph-a1b2", transformer_voltages=[...])
+   → voltage mapper configured
+
+6. configure_equipment_mapper(graph_id="graph-a1b2", catalog_path="...")
+   → equipment mapper configured
+
+7. build_system(system_name="golden_feeder", graph_id="graph-a1b2")
+   → system built
+
+8. export_system_json(system_name="golden_feeder", output_path="./golden_feeder.json")
+   → exported to ./golden_feeder.json
+</pre></div>
+</div>
+</section>
+<section id="known-limitations">
+<h2>Known Limitations<a class="headerlink" href="#known-limitations" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Install the MCP extra in the same environment as SHIFT with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">&quot;.[mcp]&quot;</span></code>; the current project pins <code class="docutils literal notranslate"><span class="pre">grid-data-models==2.3.7</span></code> and declares <code class="docutils literal notranslate"><span class="pre">mcp&gt;=2.0</span></code> as an optional dependency.</p></li>
+<li><p><strong>Network-dependent tools</strong>: <code class="docutils literal notranslate"><span class="pre">fetch_parcels</span></code>, <code class="docutils literal notranslate"><span class="pre">fetch_parcels_in_polygon</span></code>, and <code class="docutils literal notranslate"><span class="pre">fetch_road_network</span></code> require internet access to query OpenStreetMap.</p></li>
+<li><p><strong>Single session</strong>: The stdio transport serves one client at a time. For multi-client scenarios, wrap with a proxy or use the SSE transport.</p></li>
+</ul>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="API_REFERENCE.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">API Quick Reference</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-server">Running the Server</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#claude-desktop-configuration">Claude Desktop Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#session-state">Session State</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-reference">Tools Reference</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-acquisition-5-tools">Data Acquisition (5 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#graph-management-13-tools">Graph Management (13 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mappers-6-tools">Mappers (6 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#system-4-tools">System (4 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities-5-tools">Utilities (5 tools)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation-3-tools">Documentation (3 tools)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resource-templates">Resource Templates</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-templates">Prompt Templates</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration">Configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-workflow">Example Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-limitations">Known Limitations</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Aadil Latif,Kapil Duwadi, Erik Pohl
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, National Laboratory of the Rockies (NLR).
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

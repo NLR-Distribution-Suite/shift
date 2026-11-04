@@ -1,0 +1,815 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Version 0.8.0 &#8212; NREL-shift</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'new_features';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Synthetic Distribution Model Building with SHIFT" href="example/example.html" />
+    <link rel="prev" title="NREL-shift" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">NREL-shift</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    NREL-shift
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">What's New</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Version 0.8.0</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="example/example.html">Synthetic Distribution Model Building with SHIFT</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="usage/index.html">Usage Guides</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/complete_example.html">Complete Example: Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/fetching_parcels.html">Fetching Parcels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/building_graph.html">Building a Distribution Graph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/updating_branch_type.html">Updating Branch Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_phases.html">Mapping Phases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_voltages.html">Mapping Voltages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/mapping_equipment.html">Mapping Equipment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/building_system.html">Building a Distribution System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/ui_studio.html">UI Studio</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="references/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="references/data_model.html">Data Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/dist_graph.html">DistributionGraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_graph.html">OpenStreetGraphBuilder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/prsg.html">PRSG (Primary-Secondary Road-Network Graph Builder)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/routing_strategies.html">Routing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/secondary_strategies.html">Secondary Network Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/phase_mapper.html">Phase Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/voltage_mapper.html">Voltage Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/equipment_mapper.html">Equipment Mappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/system_builder.html">Distribution System Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_parcel.html">Parcel Fetching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/openstreet_roads.html">Road Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/clustering.html">K-Means Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/nearest_points.html">Nearest Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/polygon_from_points.html">Polygon from Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/mesh_network.html">Mesh Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/split_edges.html">Splitting Edges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/plot_manager.html">PlotManager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references/plots.html">Plot Helpers</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="API_REFERENCE.html">API Quick Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MCP_SERVER.html">MCP Server</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/new_features.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Version 0.8.0</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Version 0.8.0</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interactive-ui-studio-and-rest-api">Interactive UI Studio and REST API</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#recent-feature-additions">Recent Feature Additions</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7-0">Version 0.7.0</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pluggable-routing-strategies-for-primary-network">Pluggable routing strategies for primary network</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pluggable-secondary-network-strategies">Pluggable secondary network strategies</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-weight-functions">Custom weight functions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#road-network-reduce-to-mst-parameter">Road network <code class="docutils literal notranslate"><span class="pre">reduce_to_mst</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-6-3">Version 0.6.3</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-update">Dependency update</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mcp-server">MCP Server</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#jupyter-book-documentation">Jupyter Book documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="version-0-8-0">
+<h1>Version 0.8.0<a class="headerlink" href="#version-0-8-0" title="Link to this heading">#</a></h1>
+<section id="interactive-ui-studio-and-rest-api">
+<h2>Interactive UI Studio and REST API<a class="headerlink" href="#interactive-ui-studio-and-rest-api" title="Link to this heading">#</a></h2>
+<p>SHIFT now includes an integrated FastAPI-based UI service and browser studio for interactive feeder design.</p>
+<p><strong>Highlights</strong></p>
+<ul class="simple">
+<li><p>New <code class="docutils literal notranslate"><span class="pre">shift-ui-server</span></code> entrypoint for launching the UI service.</p></li>
+<li><p>New optional dependency group: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">&quot;.[ui]&quot;</span></code>.</p></li>
+<li><p>Interactive map workflow for source selection and spatial context.</p></li>
+<li><p>Configurable network presets and routing/secondary strategy overrides.</p></li>
+<li><p>Side-by-side strategy comparison endpoint and UI controls.</p></li>
+<li><p>Mapper, system build, and export endpoints exposed for guided end-to-end workflows.</p></li>
+</ul>
+<p><strong>Try it</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[ui]"</span>
+shift-ui-server
+</pre></div>
+</div>
+<p>Then open <code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:8000</span></code> in your browser.</p>
+</section>
+</section>
+<section class="tex2jax_ignore mathjax_ignore" id="recent-feature-additions">
+<h1>Recent Feature Additions<a class="headerlink" href="#recent-feature-additions" title="Link to this heading">#</a></h1>
+<section id="version-0-7-0">
+<h2>Version 0.7.0<a class="headerlink" href="#version-0-7-0" title="Link to this heading">#</a></h2>
+<section id="pluggable-routing-strategies-for-primary-network">
+<h3>Pluggable routing strategies for primary network<a class="headerlink" href="#pluggable-routing-strategies-for-primary-network" title="Link to this heading">#</a></h3>
+<p>New <code class="docutils literal notranslate"><span class="pre">routing_strategy</span></code> parameter on <code class="docutils literal notranslate"><span class="pre">PRSG</span></code> and <code class="docutils literal notranslate"><span class="pre">OpenStreetGraphBuilder</span></code> allows selecting
+the algorithm used to route the primary distribution network through the road graph:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Strategy</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SteinerTreeStrategy</span></code></p></td>
+<td><p>Steiner tree with uniform weights (default, backward-compatible)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WeightedSteinerTreeStrategy</span></code></p></td>
+<td><p>Steiner tree with geodesic distance weights</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ShortestPathTreeStrategy</span></code></p></td>
+<td><p>Dijkstra shortest-path tree from source</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MinimumSpanningTreeStrategy</span></code></p></td>
+<td><p>MST over terminals via pairwise shortest paths</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FullRoadGraphStrategy</span></code></p></td>
+<td><p>Full road network as topology (no reduction)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CostOptimizedStrategy</span></code></p></td>
+<td><p>MILP cost minimization (placeholder for future solver integration)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>References</strong>:</p>
+<ul class="simple">
+<li><p>Ali et al. (2023). <em>Modeling synthetic power distribution network and datasets with industrial validation.</em> Journal of Industrial Information Integration.</p></li>
+<li><p>Trpovski et al. (2018). <em>Synthetic Distribution Grid Generation Using Power System Planning: Case Study of Singapore.</em> IEEE ISGT-Europe.</p></li>
+<li><p>Caetano et al. (2026). <em>Bayesian model-based generation of synthetic unbalanced distribution networks incorporating reliability indices.</em> Electric Power Systems Research.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">WeightedSteinerTreeStrategy</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Example: Use weighted Steiner tree for more realistic primary routing</span>
+<span class="c1"># builder = PRSG(</span>
+<span class="c1">#     groups=clusters,</span>
+<span class="c1">#     source_location=GeoLocation(-97.3, 32.75),</span>
+<span class="c1">#     routing_strategy=WeightedSteinerTreeStrategy(),</span>
+<span class="c1"># )</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Available routing strategies:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - SteinerTreeStrategy (default)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - WeightedSteinerTreeStrategy (geodesic distance weights)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - ShortestPathTreeStrategy (Dijkstra from source)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - MinimumSpanningTreeStrategy (MST over terminals)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - FullRoadGraphStrategy (full road graph, no reduction)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - CostOptimizedStrategy (MILP placeholder)"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="pluggable-secondary-network-strategies">
+<h3>Pluggable secondary network strategies<a class="headerlink" href="#pluggable-secondary-network-strategies" title="Link to this heading">#</a></h3>
+<p>New <code class="docutils literal notranslate"><span class="pre">secondary_strategy</span></code> parameter on <code class="docutils literal notranslate"><span class="pre">PRSG</span></code> allows selecting the algorithm used
+to connect loads to their serving transformer:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Strategy</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MeshSteinerStrategy</span></code></p></td>
+<td><p>Rectangular mesh + Steiner tree (default, backward-compatible)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RadialStrategy</span></code></p></td>
+<td><p>Direct star connection from transformer to loads</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DelaunayStrategy</span></code></p></td>
+<td><p>Delaunay triangulation + MST pruning</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">OpenStreetSecondaryStrategy</span></code></p></td>
+<td><p>Route secondary along local roads</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">HubLineStrategy</span></code></p></td>
+<td><p>k-NN consumer-to-transformer assignment</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>References</strong>:</p>
+<ul class="simple">
+<li><p>Ali et al. (2023). Hub-line algorithm for consumer-to-transformer assignment.</p></li>
+<li><p>Bidel et al. (2021). <em>Synthetic Distribution Grid Generation Based on High Resolution Spatial Data.</em> IEEE EEEIC.</p></li>
+<li><p>Shahraeini (2023). <em>An Algorithm for Generating Synthetic Distribution Grids based on Erdős–Rényi Random Graph Model.</em> IEEE SGC.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: Combine weighted primary + radial secondary</span>
+<span class="c1"># builder = PRSG(</span>
+<span class="c1">#     groups=clusters,</span>
+<span class="c1">#     source_location=GeoLocation(-97.3, 32.75),</span>
+<span class="c1">#     routing_strategy=WeightedSteinerTreeStrategy(),</span>
+<span class="c1">#     secondary_strategy=RadialStrategy(),</span>
+<span class="c1"># )</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Available secondary strategies:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - MeshSteinerStrategy (default)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - RadialStrategy (star topology)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - DelaunayStrategy (organic layout)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - OpenStreetSecondaryStrategy (road-aware)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  - HubLineStrategy (k-NN assignment)"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="custom-weight-functions">
+<h3>Custom weight functions<a class="headerlink" href="#custom-weight-functions" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">WeightedSteinerTreeStrategy</span></code> and <code class="docutils literal notranslate"><span class="pre">ShortestPathTreeStrategy</span></code> accept an optional
+<code class="docutils literal notranslate"><span class="pre">weight_fn</span></code> callback for custom edge weighting. This enables domain-specific
+routing policies such as:</p>
+<ul class="simple">
+<li><p>Penalizing road crossings</p></li>
+<li><p>Applying distance-zone penalties (Caetano et al. 2026)</p></li>
+<li><p>Super-linear distance costs</p></li>
+<li><p>Terrain-aware routing</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">shift.utils.split_network_edges</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_distance_between_points</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shift.data_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoLocation</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">penalized_weight</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Super-linear distance penalty — discourages long edges."""</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">get_distance_between_points</span><span class="p">(</span>
+            <span class="n">GeoLocation</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">u</span><span class="p">][</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">u</span><span class="p">][</span><span class="s2">"y"</span><span class="p">]),</span>
+            <span class="n">GeoLocation</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">v</span><span class="p">][</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">v</span><span class="p">][</span><span class="s2">"y"</span><span class="p">]),</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">"m"</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">magnitude</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">dist</span><span class="o">**</span><span class="mf">1.5</span>
+
+
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">WeightedSteinerTreeStrategy</span><span class="p">(</span><span class="n">weight_fn</span><span class="o">=</span><span class="n">penalized_weight</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Strategy: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Weight function: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">weight_fn</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="road-network-reduce-to-mst-parameter">
+<h3>Road network <code class="docutils literal notranslate"><span class="pre">reduce_to_mst</span></code> parameter<a class="headerlink" href="#road-network-reduce-to-mst-parameter" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">get_road_network()</span></code> function now accepts a <code class="docutils literal notranslate"><span class="pre">reduce_to_mst</span></code> parameter
+(default <code class="docutils literal notranslate"><span class="pre">True</span></code>). Set to <code class="docutils literal notranslate"><span class="pre">False</span></code> to retrieve the full road network graph
+without minimum spanning tree reduction — useful with <code class="docutils literal notranslate"><span class="pre">FullRoadGraphStrategy</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Default: returns MST of road network</span>
+<span class="c1"># mst_graph = get_road_network("Fort Worth, TX", Distance(500, "m"))</span>
+
+<span class="c1"># New: get full road network (more edges, may contain cycles)</span>
+<span class="c1"># full_graph = get_road_network("Fort Worth, TX", Distance(500, "m"), reduce_to_mst=False)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"get_road_network() signature:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  get_road_network(location, max_distance=500m, reduce_to_mst=True)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  reduce_to_mst=True  → MST of undirected road graph (original behavior)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  reduce_to_mst=False → Full undirected road graph (for FullRoadGraphStrategy)"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-6-3">
+<h2>Version 0.6.3<a class="headerlink" href="#version-0-6-3" title="Link to this heading">#</a></h2>
+<section id="dependency-update">
+<h3>Dependency update<a class="headerlink" href="#dependency-update" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Updated <code class="docutils literal notranslate"><span class="pre">grid-data-models</span></code> dependency to v2.3.7.</p></li>
+</ul>
+</section>
+<section id="mcp-server">
+<h3>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Added Model Context Protocol (MCP) server for AI-assisted distribution modeling.</p></li>
+<li><p>Supports graph construction, equipment mapping, and system building via tool calls.</p></li>
+</ul>
+</section>
+<section id="jupyter-book-documentation">
+<h3>Jupyter Book documentation<a class="headerlink" href="#jupyter-book-documentation" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Migrated documentation from Sphinx <a class="reference external" href="http://conf.py">conf.py</a> to Jupyter Book format.</p></li>
+<li><p>Added interactive example notebook.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">NREL-shift</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="example/example.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Synthetic Distribution Model Building with SHIFT</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Version 0.8.0</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interactive-ui-studio-and-rest-api">Interactive UI Studio and REST API</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#recent-feature-additions">Recent Feature Additions</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7-0">Version 0.7.0</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pluggable-routing-strategies-for-primary-network">Pluggable routing strategies for primary network</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pluggable-secondary-network-strategies">Pluggable secondary network strategies</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-weight-functions">Custom weight functions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#road-network-reduce-to-mst-parameter">Road network <code class="docutils literal notranslate"><span class="pre">reduce_to_mst</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-6-3">Version 0.6.3</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-update">Dependency update</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mcp-server">MCP Server</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#jupyter-book-documentation">Jupyter Book documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Aadil Latif,Kapil Duwadi, Erik Pohl
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, National Laboratory of the Rockies (NLR).
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
